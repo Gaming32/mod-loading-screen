@@ -81,6 +81,7 @@ public class ActualLoadingScreen {
         if (dialog == null) return;
 
         final JProgressBar progressBar = progressBars.get(typeName);
+        if (progressBar == null) return;
         progressBar.setValue(progressBar.getValue() + 1);
         setLabel(progressBar, typeName, typeType, entrypoint.getProvider().getMetadata().getName());
     }
@@ -89,7 +90,9 @@ public class ActualLoadingScreen {
         System.out.println("Finished loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
-        label.remove(progressBars.remove(name));
+        final JProgressBar progressBar = progressBars.get(name);
+        if (progressBar == null) return;
+        label.remove(progressBar);
         dialog.pack();
     }
 
