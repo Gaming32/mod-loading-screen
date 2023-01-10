@@ -75,16 +75,46 @@ public class ModLoadingScreen implements LanguageAdapter {
         Agents.getInstrumentation().addTransformer(new ClassFileTransformer() {
             @Override
             public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-                return className.equals(ENTRYPOINT_UTILS) ? instrument(classfileBuffer) : null;
+                return className.equals(ENTRYPOINT_UTILS) ? instrumentClass(classfileBuffer) : null;
             }
         }, true);
         Agents.getInstrumentation().retransformClasses(Class.forName(ENTRYPOINT_UTILS.replace('/', '.')));
     }
 
-    private static byte[] instrument(byte[] bytes) {
+    private static byte[] instrumentClass(byte[] bytes) {
         final ClassNode clazz = new ClassNode();
         new ClassReader(bytes).accept(clazz, 0);
 
+        instrumentInvoke(clazz);
+        instrumentInvoke0(clazz);
+
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+        clazz.accept(writer);
+        return writer.toByteArray();
+    }
+
+    private static void instrumentInvoke(ClassNode clazz) {
+        final MethodNode method = clazz.methods.stream()
+            .filter(m -> m.name.equals(RUNNING_ON_QUILT ? "invokeContainer" : "invoke"))
+            .findFirst()
+            .orElseThrow();
+        final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
+
+        while (it.hasNext()) {
+            if (!(it.next() instanceof InsnNode insn)) continue;
+            if (insn.getOpcode() == Opcodes.RETURN) break;
+        }
+        it.previous();
+        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        it.add(new MethodInsnNode(
+            Opcodes.INVOKESTATIC,
+            ACTUAL_LOADING_SCREEN, "maybeCloseAfter",
+            "(Ljava/lang/String;)V",
+            false
+        ));
+    }
+
+    private static void instrumentInvoke0(ClassNode clazz) {
         final MethodNode method = clazz.methods.stream()
             .filter(m -> m.name.equals("invoke0"))
             .findFirst()
@@ -140,10 +170,6 @@ public class ModLoadingScreen implements LanguageAdapter {
             "(Ljava/lang/String;)V",
             false
         ));
-
-        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
-        clazz.accept(writer);
-        return writer.toByteArray();
     }
 
     static {

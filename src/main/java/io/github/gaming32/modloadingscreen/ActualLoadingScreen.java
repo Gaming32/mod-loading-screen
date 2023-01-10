@@ -91,12 +91,14 @@ public class ActualLoadingScreen {
 
         label.remove(progressBars.remove(name));
         dialog.pack();
+    }
 
+    public static void maybeCloseAfter(String type) {
         if (
-            FINAL_ENTRYPOINTS.contains(name) // &&
-                // Not doing this because of https://github.com/QuiltMC/quilt-standard-libraries/issues/249
-                // // Hack workaround for differently-named Quilt entrypoints
-                // FabricLoader.getInstance().getEntrypointContainers(name + "_init", Object.class).isEmpty()
+            FINAL_ENTRYPOINTS.contains(type) // &&
+            // Not doing this because of https://github.com/QuiltMC/quilt-standard-libraries/issues/249
+            // // Hack workaround for differently-named Quilt entrypoints
+            // FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
         ) {
             dialog.dispose();
             dialog = null;
