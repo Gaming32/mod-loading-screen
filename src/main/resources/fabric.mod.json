@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "mod-loading-screen",
+  "version": "${version}",
+  "name": "Mod Loading Screen",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/mod-loading-screen/icon.png",
+  "environment": "*",
+  "depends": {
+    "fabricloader": ">=0.12.0"
+  },
+  "languageAdapters": {
+    "mod-loading-screen:totallyARealLanguageAdapter": "io.github.gaming32.modloadingscreen.ModLoadingScreen"
+  },
+  "entrypoints": {
+    "preLaunch": [
+      {
+        "adapter": "mod-loading-screen:totallyARealLanguageAdapter",
+        "value": ""
+      }
+    ]
+  }
+}
