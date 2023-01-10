@@ -3,8 +3,10 @@
   "id": "mod-loading-screen",
   "version": "${version}",
   "name": "Mod Loading Screen",
-  "description": "",
-  "authors": [],
+  "description": "An advanced loading screen with the loading progress of mods",
+  "authors": [
+    "Gaming32"
+  ],
   "contact": {},
   "license": "MIT",
   "icon": "assets/mod-loading-screen/icon.png",
