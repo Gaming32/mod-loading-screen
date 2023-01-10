@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.ProtectionDomain;
 import java.util.ListIterator;
 
@@ -45,8 +44,6 @@ public class ModLoadingScreen implements LanguageAdapter {
     public static void init() throws Throwable {
         LOGGER.info("I just want to say... I'm loading " + (RUNNING_ON_QUILT ? "kinda" : "*really*") + " early.");
 
-        final Path tempFlatLaf = Files.createTempFile("FlatLaf", ".jar");
-        tempFlatLaf.toFile().deleteOnExit();
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()
                 .getModContainer("mod-loading-screen")

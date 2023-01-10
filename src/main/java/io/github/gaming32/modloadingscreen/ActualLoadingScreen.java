@@ -68,7 +68,7 @@ public class ActualLoadingScreen {
         System.out.println("Preparing loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
-        final JProgressBar progressBar = new JProgressBar(-1, FabricLoader.getInstance().getEntrypointContainers(name, type).size());
+        final JProgressBar progressBar = new JProgressBar(0, FabricLoader.getInstance().getEntrypointContainers(name, type).size());
         progressBar.setStringPainted(true);
         setLabel(progressBar, name, type, null);
         progressBars.put(name, progressBar);
