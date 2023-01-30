@@ -1,6 +1,5 @@
 package io.github.gaming32.modloadingscreen;
 
-import com.mojang.logging.LogUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.LanguageAdapter;
 import net.fabricmc.loader.api.LanguageAdapterException;
@@ -14,7 +13,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
-import org.slf4j.Logger;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Files;
@@ -22,7 +20,6 @@ import java.security.ProtectionDomain;
 import java.util.ListIterator;
 
 public class ModLoadingScreen implements LanguageAdapter {
-    private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean RUNNING_ON_QUILT = FabricLoader.getInstance().isModLoaded("quilt_loader");
 
     private static final String ENTRYPOINT_UTILS = RUNNING_ON_QUILT
@@ -42,7 +39,7 @@ public class ModLoadingScreen implements LanguageAdapter {
     }
 
     public static void init() throws Throwable {
-        LOGGER.info("I just want to say... I'm loading " + (RUNNING_ON_QUILT ? "kinda" : "*really*") + " early.");
+        System.out.println("[ModLoadingScreen] I just want to say... I'm loading " + (RUNNING_ON_QUILT ? "kinda" : "*really*") + " early.");
 
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()

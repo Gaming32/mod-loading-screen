@@ -23,11 +23,11 @@ public class ActualLoadingScreen {
 
     public static void startLoadingScreen() throws MalformedURLException {
         if (GraphicsEnvironment.isHeadless()) {
-            System.out.println("Mod Loading Screen is on a headless environment. Only some logging will be performed.");
+            System.out.println("[ModLoadingScreen] Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
         }
 
-        System.out.println("Opening loading screen");
+        System.out.println("[ModLoadingScreen] Opening loading screen");
 
         final String gameNameAndVersion = FabricLoader.getInstance()
             .getAllMods()
@@ -66,7 +66,7 @@ public class ActualLoadingScreen {
     }
 
     public static void beforeEntrypointType(String name, Class<?> type) {
-        System.out.println("Preparing loading screen for entrypoint '" + name + "'");
+        System.out.println("[ModLoadingScreen] Preparing loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
         final JProgressBar progressBar = new JProgressBar(0, FabricLoader.getInstance().getEntrypointContainers(name, type).size());
@@ -78,7 +78,7 @@ public class ActualLoadingScreen {
     }
 
     public static void beforeSingleEntrypoint(String typeName, Class<?> typeType, EntrypointContainer<?> entrypoint) {
-        System.out.println("Calling entrypoint container for mod '" + entrypoint.getProvider().getMetadata().getId() + "'");
+        System.out.println("[ModLoadingScreen] Calling entrypoint container for mod '" + entrypoint.getProvider().getMetadata().getId() + "'");
         if (dialog == null) return;
 
         final JProgressBar progressBar = progressBars.get(typeName);
@@ -88,7 +88,7 @@ public class ActualLoadingScreen {
     }
 
     public static void afterEntrypointType(String name) {
-        System.out.println("Finished loading screen for entrypoint '" + name + "'");
+        System.out.println("[ModLoadingScreen] Finished loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
         final JProgressBar progressBar = progressBars.get(name);
