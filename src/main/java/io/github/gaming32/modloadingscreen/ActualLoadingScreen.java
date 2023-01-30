@@ -61,6 +61,7 @@ public class ActualLoadingScreen {
 
         dialog.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         dialog.pack();
+        dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
     }
 
