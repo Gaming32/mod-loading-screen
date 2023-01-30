@@ -7,8 +7,6 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.List;
 import java.util.*;
 
@@ -21,7 +19,7 @@ public class ActualLoadingScreen {
     private static JFrame dialog;
     private static JLabel label;
 
-    public static void startLoadingScreen() throws MalformedURLException {
+    public static void startLoadingScreen() {
         if (GraphicsEnvironment.isHeadless()) {
             System.out.println("[ModLoadingScreen] Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
@@ -47,10 +45,8 @@ public class ActualLoadingScreen {
         dialog.setTitle("Loading " + gameNameAndVersion);
         dialog.setResizable(false);
 
-        final ImageIcon icon = new ImageIcon(new URL(
-            RUNNING_ON_QUILT
-                ? "https://raw.githubusercontent.com/QuiltMC/art/master/banners/png/quilt-banner.png"
-                : "https://raw.githubusercontent.com/FabricMC/fabricmc.net/main/assets/aof4.png"
+        final ImageIcon icon = new ImageIcon(ClassLoader.getSystemResource(
+            "assets/mod-loading-screen/" + (RUNNING_ON_QUILT ? "quilt-banner.png" : "aof4.png")
         ));
         icon.setImage(icon.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
         label = new JLabel(icon);
