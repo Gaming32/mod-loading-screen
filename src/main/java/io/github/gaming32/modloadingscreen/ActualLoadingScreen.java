@@ -8,10 +8,8 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 
@@ -65,18 +63,18 @@ public class ActualLoadingScreen {
 
         if (!IS_IPC_CLIENT && ENABLE_IPC) {
             final Path runDir = FabricLoader.getInstance().getGameDir().resolve(".cache/mod-loading-screen");
-            String flatlafUrl = FabricLoader.getInstance()
-                .getModContainer("com_formdev_flatlaf")
-                .orElseThrow(AssertionError::new)
-                .getRootPaths().get(0)
-                .toUri().toString();
-            if (flatlafUrl.startsWith("jar:")) {
-                flatlafUrl = flatlafUrl.substring(4, flatlafUrl.length() - 2);
-            }
             final Path flatlafDestPath = runDir.resolve("flatlaf.jar");
             try {
                 Files.createDirectories(flatlafDestPath.getParent());
-                Files.copy(Paths.get(new URI(flatlafUrl)), flatlafDestPath, StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(
+                    FabricLoader.getInstance()
+                        .getModContainer("mod-loading-screen")
+                        .orElseThrow(AssertionError::new)
+                        .getRootPaths().get(0)
+                        .resolve("META-INF/jars/flatlaf-3.0.jar"),
+                    flatlafDestPath, StandardCopyOption.REPLACE_EXISTING
+                );
+                println("Extracted flatlaf");
                 ipcOut = new DataOutputStream(
                     new ProcessBuilder(
                         System.getProperty("java.home") + "/bin/java",
@@ -297,12 +295,12 @@ public class ActualLoadingScreen {
                         afterEntrypointType(packetArgs[0]);
                         break;
                     case 3:
-                        close();
                         break mainLoop;
                 }
             }
         } catch (Exception e) {
             println("Error in IPC client", e);
         }
+        close();
     }
 }
