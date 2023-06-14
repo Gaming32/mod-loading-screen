@@ -2,7 +2,9 @@ package io.github.gaming32.modloadingscreen;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.VersionParsingException;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -12,6 +14,17 @@ import java.util.*;
 
 public class ActualLoadingScreen {
     private static final boolean RUNNING_ON_QUILT = FabricLoader.getInstance().isModLoaded("quilt_loader");
+    private static final boolean QSL_HACK = RUNNING_ON_QUILT &&
+        FabricLoader.getInstance()
+            .getModContainer("quilt_base")
+            .map(c -> {
+                try {
+                    return VersionPredicate.parse(">=5.0.0-beta.4").test(c.getMetadata().getVersion());
+                } catch (VersionParsingException e) {
+                    throw new AssertionError(e);
+                }
+            })
+            .orElse(false);
     private static final Set<String> IGNORED_BUILTIN = Set.of(RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java");
     public static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(List.of("client", "server", "client_init", "server_init"));
 
@@ -87,7 +100,7 @@ public class ActualLoadingScreen {
         System.out.println("[ModLoadingScreen] Finished loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
-        final JProgressBar progressBar = progressBars.get(name);
+        final JProgressBar progressBar = progressBars.remove(name);
         if (progressBar == null) return;
         label.remove(progressBar);
         dialog.pack();
@@ -95,10 +108,13 @@ public class ActualLoadingScreen {
 
     public static void maybeCloseAfter(String type) {
         if (
-            FINAL_ENTRYPOINTS.contains(type) // &&
-            // Not doing this because of https://github.com/QuiltMC/quilt-standard-libraries/issues/249
-            // // Hack workaround for differently-named Quilt entrypoints
-            // FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
+            dialog != null &&
+            FINAL_ENTRYPOINTS.contains(type) &&
+            // Hack workaround for differently-named Quilt entrypoints
+            (
+                !QSL_HACK ||
+                FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
+            )
         ) {
             dialog.dispose();
             dialog = null;
