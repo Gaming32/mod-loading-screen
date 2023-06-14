@@ -18,13 +18,14 @@ import java.util.ListIterator;
 
 public class ModLoadingScreen implements LanguageAdapter {
     private static final boolean RUNNING_ON_QUILT = FabricLoader.getInstance().isModLoaded("quilt_loader");
-
     private static final String ENTRYPOINT_UTILS = RUNNING_ON_QUILT
         ? "org/quiltmc/loader/impl/entrypoint/EntrypointUtils"
         : "net/fabricmc/loader/impl/entrypoint/EntrypointUtils";
     private static final String ENTRYPOINT_CONTAINER = "net/fabricmc/loader/api/entrypoint/EntrypointContainer";
     private static final String ENTRYPOINT_CONTAINER_IMPL = "net/fabricmc/loader/impl/entrypoint/EntrypointContainerImpl";
-    private static final String ACTUAL_LOADING_SCREEN = "io/github/gaming32/modloadingscreen/ActualLoadingScreen";
+    private static final String MOD_CONTAINER = "net/fabricmc/loader/api/ModContainer";
+    private static final String MOD_METADATA = "net/fabricmc/loader/api/metadata/ModMetadata";
+    public static final String ACTUAL_LOADING_SCREEN = "io/github/gaming32/modloadingscreen/ActualLoadingScreen";
 
     @Override
     @SuppressWarnings("unchecked")
@@ -36,7 +37,7 @@ public class ModLoadingScreen implements LanguageAdapter {
     }
 
     public static void init() throws Throwable {
-        System.out.println("[ModLoadingScreen] I just want to say... I'm loading " + (RUNNING_ON_QUILT ? "kinda" : "*really*") + " early.");
+        System.out.println("[ModLoadingScreen] I just want to say... I'm loading *really* early.");
 
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()
@@ -53,7 +54,7 @@ public class ModLoadingScreen implements LanguageAdapter {
                 .toUri().toURL()
         );
 
-        final byte[] aclData = Files.readAllBytes(
+        final byte[] alsData = Files.readAllBytes(
             FabricLoader.getInstance()
                 .getModContainer("mod-loading-screen")
                 .orElseThrow(AssertionError::new)
@@ -62,7 +63,7 @@ public class ModLoadingScreen implements LanguageAdapter {
         );
 
         Methods.invoke(null, Methods.getDeclaredMethod(
-            ClassLoaders.defineClass(ClassLoader.getSystemClassLoader(), ACTUAL_LOADING_SCREEN.replace('/', '.'), aclData),
+            ClassLoaders.defineClass(ClassLoader.getSystemClassLoader(), ACTUAL_LOADING_SCREEN.replace('/', '.'), alsData),
             "startLoadingScreen"
         ));
 
@@ -120,8 +121,7 @@ public class ModLoadingScreen implements LanguageAdapter {
         it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "beforeEntrypointType",
-            "(Ljava/lang/String;Ljava/lang/Class;)V",
-            false
+            "(Ljava/lang/String;Ljava/lang/Class;)V"
         ));
 
         final int container = RUNNING_ON_QUILT ? 7 : 6;
@@ -132,6 +132,11 @@ public class ModLoadingScreen implements LanguageAdapter {
         }
         it.add(new VarInsnNode(Opcodes.ALOAD, 0));
         it.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        it.add(new MethodInsnNode(
+            Opcodes.INVOKEVIRTUAL,
+            "java/lang/Class", "getSimpleName",
+            "()Ljava/lang/String;"
+        ));
         if (RUNNING_ON_QUILT) {
             it.add(new TypeInsnNode(Opcodes.NEW, ENTRYPOINT_CONTAINER_IMPL));
             it.add(new InsnNode(Opcodes.DUP));
@@ -141,14 +146,35 @@ public class ModLoadingScreen implements LanguageAdapter {
             it.add(new MethodInsnNode(
                 Opcodes.INVOKESPECIAL,
                 ENTRYPOINT_CONTAINER_IMPL, "<init>",
-                "(Lorg/quiltmc/loader/api/entrypoint/EntrypointContainer;)V",
-                false
+                "(Lorg/quiltmc/loader/api/entrypoint/EntrypointContainer;)V"
             ));
         }
         it.add(new MethodInsnNode(
+            Opcodes.INVOKEINTERFACE,
+            ENTRYPOINT_CONTAINER, "getProvider",
+            "()L" + MOD_CONTAINER + ";"
+        ));
+        it.add(new MethodInsnNode(
+            Opcodes.INVOKEINTERFACE,
+            MOD_CONTAINER, "getMetadata",
+            "()L" + MOD_METADATA + ";"
+        ));
+        it.add(new InsnNode(Opcodes.DUP));
+        it.add(new MethodInsnNode(
+            Opcodes.INVOKEINTERFACE,
+            MOD_METADATA, "getId",
+            "()Ljava/lang/String;"
+        ));
+        it.add(new InsnNode(Opcodes.SWAP));
+        it.add(new MethodInsnNode(
+            Opcodes.INVOKEINTERFACE,
+            MOD_METADATA, "getName",
+            "()Ljava/lang/String;"
+        ));
+        it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "beforeSingleEntrypoint",
-            "(Ljava/lang/String;Ljava/lang/Class;L" + ENTRYPOINT_CONTAINER + ";)V",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
             false
         ));
 
@@ -163,8 +189,7 @@ public class ModLoadingScreen implements LanguageAdapter {
         it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "afterEntrypointType",
-            "(Ljava/lang/String;)V",
-            false
+            "(Ljava/lang/String;)V"
         ));
     }
 
