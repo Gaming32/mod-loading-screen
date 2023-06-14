@@ -14,9 +14,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
-import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Files;
-import java.security.ProtectionDomain;
 import java.util.ListIterator;
 
 public class ModLoadingScreen implements LanguageAdapter {
@@ -44,14 +42,14 @@ public class ModLoadingScreen implements LanguageAdapter {
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()
                 .getModContainer("mod-loading-screen")
-                .orElseThrow()
+                .orElseThrow(AssertionError::new)
                 .getRootPaths().get(0)
                 .toUri().toURL()
         );
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()
                 .getModContainer("com_formdev_flatlaf")
-                .orElseThrow()
+                .orElseThrow(AssertionError::new)
                 .getRootPaths().get(0)
                 .toUri().toURL()
         );
@@ -59,9 +57,9 @@ public class ModLoadingScreen implements LanguageAdapter {
         final byte[] aclData = Files.readAllBytes(
             FabricLoader.getInstance()
                 .getModContainer("mod-loading-screen")
-                .orElseThrow()
+                .orElseThrow(AssertionError::new)
                 .findPath(ACTUAL_LOADING_SCREEN + ".bin")
-                .orElseThrow()
+                .orElseThrow(AssertionError::new)
         );
 
         Methods.invoke(null, Methods.getDeclaredMethod(
@@ -69,12 +67,11 @@ public class ModLoadingScreen implements LanguageAdapter {
             "startLoadingScreen"
         ));
 
-        Agents.getInstrumentation().addTransformer(new ClassFileTransformer() {
-            @Override
-            public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-                return className.equals(ENTRYPOINT_UTILS) ? instrumentClass(classfileBuffer) : null;
-            }
-        }, true);
+        Agents.getInstrumentation().addTransformer(
+            (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
+                className.equals(ENTRYPOINT_UTILS) ? instrumentClass(classfileBuffer) : null,
+            true
+        );
         Agents.getInstrumentation().retransformClasses(Class.forName(ENTRYPOINT_UTILS.replace('/', '.')));
     }
 
@@ -94,11 +91,12 @@ public class ModLoadingScreen implements LanguageAdapter {
         final MethodNode method = clazz.methods.stream()
             .filter(m -> m.name.equals(RUNNING_ON_QUILT ? "invokeContainer" : "invoke"))
             .findFirst()
-            .orElseThrow();
+            .orElseThrow(AssertionError::new);
         final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
 
         while (it.hasNext()) {
-            if (!(it.next() instanceof InsnNode insn)) continue;
+            final AbstractInsnNode insn = it.next();
+            if (!(insn instanceof InsnNode)) continue;
             if (insn.getOpcode() == Opcodes.RETURN) break;
         }
         it.previous();
@@ -115,7 +113,7 @@ public class ModLoadingScreen implements LanguageAdapter {
         final MethodNode method = clazz.methods.stream()
             .filter(m -> m.name.equals("invoke0"))
             .findFirst()
-            .orElseThrow();
+            .orElseThrow(AssertionError::new);
         final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
 
         it.add(new VarInsnNode(Opcodes.ALOAD, 0));
@@ -129,8 +127,9 @@ public class ModLoadingScreen implements LanguageAdapter {
 
         final int container = RUNNING_ON_QUILT ? 7 : 6;
         while (it.hasNext()) {
-            if (!(it.next() instanceof VarInsnNode varInsn)) continue;
-            if (varInsn.getOpcode() == Opcodes.ASTORE && varInsn.var == container) break;
+            final AbstractInsnNode insn = it.next();
+            if (!(insn instanceof VarInsnNode)) continue;
+            if (insn.getOpcode() == Opcodes.ASTORE && ((VarInsnNode)insn).var == container) break;
         }
         it.add(new VarInsnNode(Opcodes.ALOAD, 0));
         it.add(new VarInsnNode(Opcodes.ALOAD, 1));
@@ -155,7 +154,8 @@ public class ModLoadingScreen implements LanguageAdapter {
         ));
 
         while (it.hasNext()) {
-            if (!(it.next() instanceof InsnNode insn)) continue;
+            final AbstractInsnNode insn = it.next();
+            if (!(insn instanceof InsnNode)) continue;
             if (insn.getOpcode() == Opcodes.IFNULL) break;
         }
         it.previous();

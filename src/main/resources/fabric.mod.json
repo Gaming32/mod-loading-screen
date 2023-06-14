@@ -12,8 +12,7 @@
   "icon": "assets/mod-loading-screen/icon.png",
   "environment": "*",
   "depends": {
-    "fabricloader": ">=0.12.0",
-    "java": ">=17"
+    "fabricloader": ">=0.12.0"
   },
   "languageAdapters": {
     "mod-loading-screen:totallyARealLanguageAdapter": "io.github.gaming32.modloadingscreen.ModLoadingScreen"

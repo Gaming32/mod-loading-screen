@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.List;
 import java.util.*;
 
 public class ActualLoadingScreen {
@@ -25,8 +24,12 @@ public class ActualLoadingScreen {
                 }
             })
             .orElse(false);
-    private static final Set<String> IGNORED_BUILTIN = Set.of(RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java");
-    public static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(List.of("client", "server", "client_init", "server_init"));
+    private static final Set<String> IGNORED_BUILTIN = new HashSet<>(Arrays.asList(
+        RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java"
+    ));
+    public static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(Arrays.asList(
+        "client", "server", "client_init", "server_init"
+    ));
 
     private static final Map<String, JProgressBar> progressBars = new LinkedHashMap<>();
     private static JFrame dialog;
