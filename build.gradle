@@ -34,11 +34,6 @@ processResources {
 
 jar {
     includeEmptyDirs = false
-    eachFile { details ->
-        if (details.path == "io/github/gaming32/modloadingscreen/ActualLoadingScreen.class") {
-            details.path = "io/github/gaming32/modloadingscreen/ActualLoadingScreen.bin"
-        }
-    }
 }
 
 def targetJavaVersion = 8

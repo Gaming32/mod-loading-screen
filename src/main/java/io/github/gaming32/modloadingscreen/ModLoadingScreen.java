@@ -7,7 +7,6 @@ import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import net.lenni0451.reflect.Agents;
 import net.lenni0451.reflect.ClassLoaders;
-import net.lenni0451.reflect.JavaBypass;
 import net.lenni0451.reflect.Methods;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -58,7 +57,7 @@ public class ModLoadingScreen implements LanguageAdapter {
             FabricLoader.getInstance()
                 .getModContainer("mod-loading-screen")
                 .orElseThrow(AssertionError::new)
-                .findPath(ACTUAL_LOADING_SCREEN + ".bin")
+                .findPath(ACTUAL_LOADING_SCREEN + ".class")
                 .orElseThrow(AssertionError::new)
         );
 
@@ -173,7 +172,7 @@ public class ModLoadingScreen implements LanguageAdapter {
         try {
             init();
         } catch (Throwable t) {
-            JavaBypass.getUnsafe().throwException(t);
+            throw new Error(t);
         }
     }
 }

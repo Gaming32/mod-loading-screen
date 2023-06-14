@@ -121,6 +121,7 @@ public class ActualLoadingScreen {
         ) {
             dialog.dispose();
             dialog = null;
+            progressBars.clear();
         }
     }
 
