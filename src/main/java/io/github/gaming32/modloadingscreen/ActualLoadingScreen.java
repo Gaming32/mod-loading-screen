@@ -10,6 +10,7 @@ import java.awt.*;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 
@@ -19,6 +20,9 @@ public class ActualLoadingScreen {
     private static final boolean IS_IPC_CLIENT = Boolean.getBoolean("mlsipc.present");
     private static final boolean RUNNING_ON_QUILT = Boolean.getBoolean("mlsipc.quilt") ||
         (!IS_IPC_CLIENT && FabricLoader.getInstance().isModLoaded("quilt_loader"));
+    private static final Path CONFIG_DIR = IS_IPC_CLIENT
+        ? Paths.get(System.getProperty("mlsipc.config"))
+        : FabricLoader.getInstance().getConfigDir().resolve("mod-loading-screen");
     private static final Set<String> IGNORED_BUILTIN = new HashSet<>(Arrays.asList(
         RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java"
     ));
@@ -47,6 +51,11 @@ public class ActualLoadingScreen {
             println("Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
         }
+        try {
+            Files.createDirectories(CONFIG_DIR);
+        } catch (IOException e) {
+            println("Failed to create config dir", e);
+        }
 
         println("Opening loading screen");
 
@@ -61,6 +70,15 @@ public class ActualLoadingScreen {
                 .map(m -> m.getMetadata().getName() + ' ' + m.getMetadata().getVersion())
                 .orElse("Unknown Game");
 
+        final Path readmePath = CONFIG_DIR.resolve("readme.txt");
+        try {
+            Files.write(readmePath, Collections.singleton(
+                "Create a file named background.png in this folder to use a custom background image. The recommended size is 960x540."
+            ));
+        } catch (IOException e) {
+            println("Failed to write readme.txt", e);
+        }
+
         if (!IS_IPC_CLIENT && ENABLE_IPC) {
             final Path runDir = FabricLoader.getInstance().getGameDir().resolve(".cache/mod-loading-screen");
             final Path flatlafDestPath = runDir.resolve("flatlaf.jar");
@@ -74,13 +92,14 @@ public class ActualLoadingScreen {
                         .resolve("META-INF/jars/flatlaf-3.0.jar"),
                     flatlafDestPath, StandardCopyOption.REPLACE_EXISTING
                 );
-                println("Extracted flatlaf");
+                println("Extracted flatlaf.jar");
                 ipcOut = new DataOutputStream(
                     new ProcessBuilder(
                         System.getProperty("java.home") + "/bin/java",
                         "-Dmlsipc.present=true",
                         "-Dmlsipc.quilt=" + RUNNING_ON_QUILT,
                         "-Dmlsipc.game=" + gameNameAndVersion,
+                        "-Dmlsipc.config=" + CONFIG_DIR,
                         "-cp", String.join(
                             File.pathSeparator,
                             FabricLoader.getInstance()
@@ -116,10 +135,19 @@ public class ActualLoadingScreen {
         dialog.setTitle("Loading " + gameNameAndVersion);
         dialog.setResizable(false);
 
-        final ImageIcon icon = new ImageIcon(ClassLoader.getSystemResource(
-            "assets/mod-loading-screen/" + (RUNNING_ON_QUILT ? "quilt-banner.png" : "aof4.png")
-        ));
-        icon.setImage(icon.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
+        ImageIcon icon;
+        try {
+            final Path backgroundPath = CONFIG_DIR.resolve("background.png");
+            icon = new ImageIcon(
+                Files.exists(backgroundPath)
+                    ? backgroundPath.toUri().toURL()
+                    : ClassLoader.getSystemResource("assets/mod-loading-screen/" + (RUNNING_ON_QUILT ? "quilt-banner.png" : "aof4.png"))
+            );
+            icon.setImage(icon.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
+        } catch (Exception e) {
+            println("Failed to load background.png", e);
+            icon = null;
+        }
         label = new JLabel(icon);
         final BoxLayout layout = new BoxLayout(label, BoxLayout.Y_AXIS);
         label.setLayout(layout);
@@ -236,10 +264,9 @@ public class ActualLoadingScreen {
             : ENABLE_IPC
                 ? "[ModLoadingScreen (IPC server)] "
                 : "[ModLoadingScreen] ";
-        final String messageWithPrefix = prefix + message;
-        System.out.println(messageWithPrefix);
+        System.out.println(prefix + message);
         if (logFile != null) {
-            logFile.println(messageWithPrefix);
+            logFile.println(message);
         }
         if (t != null) {
             t.printStackTrace();
@@ -262,10 +289,10 @@ public class ActualLoadingScreen {
                 }
                 ipcOut.flush();
             } catch (IOException e) {
-                println("Failed to send IPC message (id " + id + "): " + String.join("\t", args));
-                if (!e.getMessage().equals("The pipe is being closed")) {
-                    e.printStackTrace();
+                if (e.getMessage().equals("The pipe is being closed")) {
+                    System.exit(0);
                 }
+                println("Failed to send IPC message (id " + id + "): " + String.join("\t", args), e);
             }
         }
         return true;
@@ -298,6 +325,7 @@ public class ActualLoadingScreen {
                         break mainLoop;
                 }
             }
+            println("IPC client exiting cleanly");
         } catch (Exception e) {
             println("Error in IPC client", e);
         }
