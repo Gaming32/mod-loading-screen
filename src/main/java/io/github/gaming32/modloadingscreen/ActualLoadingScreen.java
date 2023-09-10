@@ -34,6 +34,8 @@ public class ActualLoadingScreen {
     public static final boolean ENABLE_IPC =
         !IS_IPC_CLIENT && !IS_HEADLESS && !Boolean.getBoolean("mod-loading-screen.disableIpc");
 
+    // Unlike progressBars, this is populated on both the IPC client and IPC server, allowing it to be used from the API
+    public static final Map<String, Integer> progress = new LinkedHashMap<>();
     private static final Map<String, JProgressBar> progressBars = new LinkedHashMap<>();
     private static JFrame dialog;
     private static JLabel label;
@@ -171,6 +173,8 @@ public class ActualLoadingScreen {
     }
 
     private static void beforeEntrypointType(String name, String type, int entrypointCount) {
+        progress.put(name, 0);
+
         if (sendIpc(0, name, type, Integer.toString(entrypointCount))) return;
 
         println("Preparing loading screen for entrypoint '" + name + "'");
@@ -185,6 +189,9 @@ public class ActualLoadingScreen {
     }
 
     public static void beforeSingleEntrypoint(String typeName, String typeType, String modId, String modName) {
+        final Integer oldProgress = progress.get(typeName);
+        progress.put(typeName, oldProgress != null ? oldProgress + 1 : 1);
+
         if (sendIpc(1, typeName, typeType, modId, modName)) return;
 
         println("Calling entrypoint container for mod '" + modId + "'");
@@ -192,11 +199,13 @@ public class ActualLoadingScreen {
 
         final JProgressBar progressBar = progressBars.get(typeName);
         if (progressBar == null) return;
-        progressBar.setValue(progressBar.getValue() + 1);
+        progressBar.setValue(progress.get(typeName));
         setLabel(progressBar, typeName, typeType, modName);
     }
 
     public static void afterEntrypointType(String name) {
+        progress.remove(name);
+
         if (sendIpc(2, name)) return;
 
         println("Finished loading screen for entrypoint '" + name + "'");
@@ -234,6 +243,7 @@ public class ActualLoadingScreen {
         if (dialog != null) {
             dialog.dispose();
             dialog = null;
+            progress.clear();
             progressBars.clear();
         }
         if (ipcOut != null) {
@@ -244,6 +254,10 @@ public class ActualLoadingScreen {
             }
             ipcOut = null;
         }
+    }
+
+    public static boolean isOpen() {
+        return dialog != null || ipcOut != null;
     }
 
     private static void setLabel(JProgressBar progressBar, String typeName, String typeType, @Nullable String modName) {

@@ -2,11 +2,16 @@ package io.github.gaming32.modloadingscreen.api;
 
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.impl.entrypoint.EntrypointUtils;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
 
 import java.awt.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -17,12 +22,16 @@ public class LoadingScreenApi {
     private static final MethodHandle FINAL_ENTRYPOINTS;
     private static final MethodHandle IS_HEADLESS;
     private static final MethodHandle ENABLE_IPC;
+    private static final MethodHandle PROGRESS;
+    private static final MethodHandle IS_OPEN;
 
     static {
         boolean available = true;
         MethodHandle finalEntrypoints = null;
         MethodHandle isHeadless = null;
         MethodHandle enableIpc = null;
+        MethodHandle progress = null;
+        MethodHandle isOpen = null;
 
         try {
             final MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -33,6 +42,8 @@ public class LoadingScreenApi {
             finalEntrypoints = lookup.findStaticGetter(alsClass, "FINAL_ENTRYPOINTS", Set.class);
             isHeadless = lookup.findStaticGetter(alsClass, "IS_HEADLESS", boolean.class);
             enableIpc = lookup.findStaticGetter(alsClass, "ENABLE_IPC", boolean.class);
+            progress = lookup.findStaticGetter(alsClass, "progress", Map.class);
+            isOpen = lookup.findStatic(alsClass, "isOpen", MethodType.methodType(boolean.class));
         } catch (Exception e) {
             available = false;
 
@@ -51,6 +62,8 @@ public class LoadingScreenApi {
         FINAL_ENTRYPOINTS = finalEntrypoints;
         IS_HEADLESS = isHeadless;
         ENABLE_IPC = enableIpc;
+        PROGRESS = progress;
+        IS_OPEN = isOpen;
     }
 
     /**
@@ -94,7 +107,9 @@ public class LoadingScreenApi {
     }
 
     /**
-     * Returns whether the Mod Loading Screen (and the game in general) is running in a headless environment.
+     * Returns whether the Mod Loading Screen (and the game in general) is running in a headless environment. If
+     * {@link #isAvailable} returns {@code false}, this will return the value of
+     * {@link GraphicsEnvironment#isHeadless}.
      * @return {@code true} if running in a headless environment.
      * @see GraphicsEnvironment#isHeadless
      */
@@ -124,6 +139,51 @@ public class LoadingScreenApi {
         }
         try {
             return (boolean)ENABLE_IPC.invoke();
+        } catch (Throwable t) {
+            return rethrow(t);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Integer> getProgress() {
+        if (PROGRESS == null) {
+            return Collections.emptyMap();
+        }
+        try {
+            return Collections.unmodifiableMap((Map<String, Integer>)PROGRESS.invoke());
+        } catch (Throwable t) {
+            return rethrow(t);
+        }
+    }
+
+    /**
+     * Returns an {@link Set} of progress bar names. This will be updated dynamically when bars are updated.
+     */
+    @UnmodifiableView
+    public static Set<String> getActiveProgressBars() {
+        return getProgress().keySet();
+    }
+
+    /**
+     * Returns the current progress of a progress bar, or {@code null} if there is no such progress bar.
+     * @param barName The name of the progress bar. In the case of entrypoints, this is the name of the entrypoint.
+     */
+    @Nullable
+    public static Integer getProgress(String barName) {
+        return getProgress().get(barName);
+    }
+
+    // TODO: Put a note in this when custom progress bars are added.
+    /**
+     * Returns whether a loading screen is currently active.
+     * @return {@code true} if there is a loading screen open.
+     */
+    public static boolean isOpen() {
+        if (IS_OPEN == null) {
+            return false;
+        }
+        try {
+            return (boolean)IS_OPEN.invoke();
         } catch (Throwable t) {
             return rethrow(t);
         }
