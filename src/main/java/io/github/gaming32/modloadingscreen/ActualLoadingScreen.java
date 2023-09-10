@@ -27,13 +27,12 @@ public class ActualLoadingScreen {
     private static final Set<String> IGNORED_BUILTIN = new HashSet<>(Arrays.asList(
         RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java"
     ));
-    private static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(Arrays.asList(
+    public static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(Arrays.asList(
         "client", "server", "client_init", "server_init"
     ));
-    private static final boolean ENABLE_IPC =
-        !IS_IPC_CLIENT &&
-            !GraphicsEnvironment.isHeadless() &&
-            !Boolean.getBoolean("mod-loading-screen.disableIpc");
+    public static final boolean IS_HEADLESS = GraphicsEnvironment.isHeadless();
+    public static final boolean ENABLE_IPC =
+        !IS_IPC_CLIENT && !IS_HEADLESS && !Boolean.getBoolean("mod-loading-screen.disableIpc");
 
     private static final Map<String, JProgressBar> progressBars = new LinkedHashMap<>();
     private static JFrame dialog;
@@ -42,7 +41,7 @@ public class ActualLoadingScreen {
     private static PrintStream logFile;
 
     public static void startLoadingScreen() {
-        if (GraphicsEnvironment.isHeadless()) {
+        if (IS_HEADLESS) {
             println("Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
         }
