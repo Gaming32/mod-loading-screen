@@ -18,8 +18,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import static io.github.gaming32.modloadingscreen.ModLoadingScreen.ACTUAL_LOADING_SCREEN;
-
 public class LoadingScreenApi {
     private static final long FEATURES;
     private static final MethodHandle FINAL_ENTRYPOINTS;
@@ -39,7 +37,7 @@ public class LoadingScreenApi {
         final MethodHandles.Lookup lookup = MethodHandles.lookup();
         try {
             final Class<?> alsClass = ClassLoader.getSystemClassLoader().loadClass(
-                ACTUAL_LOADING_SCREEN.replace('/', '.')
+                "io.github.gaming32.modloadingscreen.ActualLoadingScreen"
             );
 
             try {
