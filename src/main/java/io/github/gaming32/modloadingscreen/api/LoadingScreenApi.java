@@ -150,7 +150,7 @@ public class LoadingScreenApi {
             return Collections.emptyMap();
         }
         try {
-            return Collections.unmodifiableMap((Map<String, Integer>)PROGRESS.invoke());
+            return (Map<String, Integer>)PROGRESS.invoke();
         } catch (Throwable t) {
             return rethrow(t);
         }
@@ -161,7 +161,8 @@ public class LoadingScreenApi {
      */
     @UnmodifiableView
     public static Set<String> getActiveProgressBars() {
-        return getProgress().keySet();
+        final Set<String> bars = getProgress().keySet();
+        return bars == Collections.EMPTY_SET ? bars : Collections.unmodifiableSet(bars);
     }
 
     /**
