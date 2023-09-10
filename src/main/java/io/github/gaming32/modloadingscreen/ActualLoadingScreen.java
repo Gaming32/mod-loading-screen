@@ -9,10 +9,7 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.*;
 
 import static io.github.gaming32.modloadingscreen.ModLoadingScreen.ACTUAL_LOADING_SCREEN;
@@ -39,8 +36,12 @@ public class ActualLoadingScreen {
     private static final Map<String, JProgressBar> progressBars = new LinkedHashMap<>();
     private static JFrame dialog;
     private static JLabel label;
+    private static JProgressBar memoryBar;
     private static DataOutputStream ipcOut;
     private static PrintStream logFile;
+    private static Thread memoryThread;
+
+    private static boolean enableMemoryDisplay = true;
 
     public static void startLoadingScreen() {
         if (IS_HEADLESS) {
@@ -66,16 +67,9 @@ public class ActualLoadingScreen {
                 .map(m -> m.getMetadata().getName() + ' ' + m.getMetadata().getVersion())
                 .orElse("Unknown Game");
 
-        final Path readmePath = CONFIG_DIR.resolve("readme.txt");
-        try {
-            Files.write(readmePath, Collections.singleton(
-                "Create a file named background.png in this folder to use a custom background image. The recommended size is 960x540."
-            ));
-        } catch (IOException e) {
-            println("Failed to write readme.txt", e);
-        }
+        loadConfig();
 
-        if (!IS_IPC_CLIENT && ENABLE_IPC) {
+        if (ENABLE_IPC) {
             final Path runDir = FabricLoader.getInstance().getGameDir().resolve(".cache/mod-loading-screen");
             final Path flatlafDestPath = runDir.resolve("flatlaf.jar");
             try {
@@ -119,6 +113,7 @@ public class ActualLoadingScreen {
                 println("Failed to setup IPC client. Aborting.", e);
                 return;
             }
+            startMemoryThread();
             return;
         }
 
@@ -158,10 +153,63 @@ public class ActualLoadingScreen {
         label.add(Box.createVerticalGlue());
         dialog.add(label);
 
+        if (enableMemoryDisplay) {
+            memoryBar = new JProgressBar();
+            memoryBar.setStringPainted(true);
+            dialog.add(memoryBar, BorderLayout.NORTH);
+        }
+
         dialog.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
+
+        startMemoryThread();
+    }
+
+    private static void loadConfig() {
+        final Path configFile = CONFIG_DIR.resolve("config.properties");
+
+        final Properties configProperties = new Properties();
+        try (InputStream is = Files.newInputStream(configFile)) {
+            configProperties.load(is);
+        } catch (NoSuchFileException ignored) {
+        } catch (Exception e) {
+            println("Failed to load config", e);
+        }
+
+        if (configProperties.getProperty("enableMemoryDisplay") != null) {
+            enableMemoryDisplay = Boolean.parseBoolean(configProperties.getProperty("enableMemoryDisplay"));
+        }
+
+        configProperties.clear();
+        configProperties.setProperty("enableMemoryDisplay", Boolean.toString(enableMemoryDisplay));
+
+        try (OutputStream os = Files.newOutputStream(configFile)) {
+            configProperties.store(os,
+                "To use a custom background image, create a file named background.png in this folder. The recommended size is 960x540."
+            );
+        } catch (Exception e) {
+            println("Failed to write config", e);
+        }
+    }
+
+    private static void startMemoryThread() {
+        if (IS_IPC_CLIENT || !enableMemoryDisplay) return;
+        updateMemoryUsage();
+        memoryThread = new Thread(() -> {
+            while (true) {
+                try {
+                    //noinspection BusyWait
+                    Thread.sleep(100L);
+                } catch (InterruptedException e) {
+                    break;
+                }
+                updateMemoryUsage();
+            }
+        }, "MemoryUsageListener");
+        memoryThread.setDaemon(true);
+        memoryThread.start();
     }
 
     public static void beforeEntrypointType(String name, Class<?> type) {
@@ -235,11 +283,14 @@ public class ActualLoadingScreen {
                     !FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
                 )
         ) return;
-        sendIpc(3);
+        sendIpc(4);
         close();
     }
 
     private static void close() {
+        if (memoryThread != null) {
+            memoryThread.interrupt();
+        }
         if (dialog != null) {
             dialog.dispose();
             dialog = null;
@@ -258,6 +309,30 @@ public class ActualLoadingScreen {
 
     public static boolean isOpen() {
         return dialog != null || ipcOut != null;
+    }
+
+    private static void updateMemoryUsage() {
+        if (IS_IPC_CLIENT || !enableMemoryDisplay) return;
+
+        final Runtime runtime = Runtime.getRuntime();
+        final long usage = runtime.totalMemory() - runtime.freeMemory();
+        final long total = runtime.maxMemory();
+
+        if (sendIpc(3, Long.toString(usage), Long.toString(total))) return;
+
+        updateMemoryUsage0(usage, total);
+    }
+
+    private static void updateMemoryUsage0(long usage, long total) {
+        if (memoryBar == null) return;
+
+        final double bytesPerMb = 1024L * 1024L;
+        final int usageMb = (int)Math.round(usage / bytesPerMb);
+        final int totalMb = (int)Math.round(total / bytesPerMb);
+
+        memoryBar.setMaximum(totalMb);
+        memoryBar.setValue(usageMb);
+        memoryBar.setString(usageMb + " MB / " + totalMb + " MB");
     }
 
     private static void setLabel(JProgressBar progressBar, String typeName, String typeType, @Nullable String modName) {
@@ -298,12 +373,15 @@ public class ActualLoadingScreen {
         }
         if (ipcOut != null) {
             try {
-                ipcOut.writeByte(id);
-                ipcOut.writeByte(args.length);
-                for (final String arg : args) {
-                    ipcOut.writeUTF(arg);
+                //noinspection SynchronizeOnNonFinalField
+                synchronized (ipcOut) {
+                    ipcOut.writeByte(id);
+                    ipcOut.writeByte(args.length);
+                    for (final String arg : args) {
+                        ipcOut.writeUTF(arg);
+                    }
+                    ipcOut.flush();
                 }
-                ipcOut.flush();
             } catch (IOException e) {
                 if (e.getMessage().equals("The pipe is being closed")) {
                     System.exit(0);
@@ -338,6 +416,9 @@ public class ActualLoadingScreen {
                         afterEntrypointType(packetArgs[0]);
                         break;
                     case 3:
+                        updateMemoryUsage0(Long.parseLong(packetArgs[0]), Long.parseLong(packetArgs[1]));
+                        break;
+                    case 4:
                         break mainLoop;
                 }
             }
