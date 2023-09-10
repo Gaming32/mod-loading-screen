@@ -7,6 +7,12 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+sourceSets {
+    api {
+        compileClasspath += main.compileClasspath
+    }
+}
+
 repositories {
     maven {
         url "https://maven.lenni0451.net/releases"
@@ -23,6 +29,16 @@ dependencies {
     include implementation("com.formdev:flatlaf:3.0")
 }
 
+jar {
+    includeEmptyDirs = false
+}
+
+task apiJar(type: Jar) {
+    from(sourceSets.api.output)
+    archiveClassifier.set("api")
+}
+tasks.build.dependsOn(apiJar)
+
 processResources {
     inputs.property "version", project.version
     filteringCharset "UTF-8"
@@ -30,10 +46,6 @@ processResources {
     filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
-}
-
-jar {
-    includeEmptyDirs = false
 }
 
 def targetJavaVersion = 8
@@ -58,6 +70,10 @@ java {
     // if it is present.
     // If you remove this line, sources will not be generated.
     withSourcesJar()
+}
+
+tasks.sourcesJar {
+    from(sourceSets.api.allSource)
 }
 
 jar {
