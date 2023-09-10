@@ -29,22 +29,16 @@ public class ActualLoadingScreen {
     private static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(Arrays.asList(
         "client", "server", "client_init", "server_init"
     ));
-    private static final boolean ENABLE_IPC = !IS_IPC_CLIENT && !GraphicsEnvironment.isHeadless() && (
-        isOnMac()
-            ? !Boolean.getBoolean("mod-loading-screen.disableIpc")
-            : Boolean.getBoolean("mod-loading-screen.enableIpc")
-    );
+    private static final boolean ENABLE_IPC =
+        !IS_IPC_CLIENT &&
+            !GraphicsEnvironment.isHeadless() &&
+            !Boolean.getBoolean("mod-loading-screen.disableIpc");
 
     private static final Map<String, JProgressBar> progressBars = new LinkedHashMap<>();
     private static JFrame dialog;
     private static JLabel label;
     private static DataOutputStream ipcOut;
     private static PrintStream logFile;
-
-    private static boolean isOnMac() {
-        final String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        return osName.contains("mac") || osName.contains("darwin");
-    }
 
     public static void startLoadingScreen() {
         if (GraphicsEnvironment.isHeadless()) {
