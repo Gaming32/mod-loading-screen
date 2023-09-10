@@ -5,6 +5,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import org.jetbrains.annotations.Nullable;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -128,6 +129,14 @@ public class ActualLoadingScreen {
         dialog = new JFrame();
         dialog.setTitle("Loading " + gameNameAndVersion);
         dialog.setResizable(false);
+
+        try {
+            dialog.setIconImage(ImageIO.read(
+                ClassLoader.getSystemResource("assets/mod-loading-screen/icon.png"))
+            );
+        } catch (Exception e) {
+            println("Failed to load icon.png", e);
+        }
 
         ImageIcon icon;
         try {
