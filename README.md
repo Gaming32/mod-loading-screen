@@ -4,7 +4,7 @@ An advanced loading screen with the loading progress of mods. It works on all Mi
 
 ## API
 
-To depend on the API, use the Modrinth Maven. The API should be JiJed, and doing so will not include Mod Loading Screen inside your mod (it will only include the API). The API is designed to have both forwards and backwards binary compatibility with future Mod Loading Screen versions. An API is provided for checking which API calls will return stubs and which ones are real.
+To depend on the API, use the Modrinth Maven. The API should be JiJed, and doing so will not include Mod Loading Screen inside your mod (it will only include the API, which is only a few kilobytes). The API is designed to have both forwards and backwards binary compatibility with future Mod Loading Screen versions. An API is provided for checking which API calls will return stubs and which ones are real.
 
 ```gradle
 repositories {
