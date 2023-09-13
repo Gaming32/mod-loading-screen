@@ -31,6 +31,7 @@ dependencies {
 
 jar {
     includeEmptyDirs = false
+    from(sourceSets.api.output)
 }
 
 task apiJar(type: Jar) {
