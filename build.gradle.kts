@@ -30,6 +30,9 @@ dependencies {
 
 tasks.jar {
     includeEmptyDirs = false
+    manifest {
+        attributes["Premain-Class"] = "io.github.gaming32.modloadingscreen.EarlyLoadingAgent"
+    }
 }
 
 val apiJar by tasks.registering(Jar::class) {

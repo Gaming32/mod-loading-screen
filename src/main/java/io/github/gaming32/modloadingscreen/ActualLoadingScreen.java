@@ -3,6 +3,7 @@ package io.github.gaming32.modloadingscreen;
 import com.formdev.flatlaf.FlatDarkLaf;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,7 +14,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 
-import static io.github.gaming32.modloadingscreen.ModLoadingScreen.ACTUAL_LOADING_SCREEN;
+import static io.github.gaming32.modloadingscreen.MlsTransformers.ACTUAL_LOADING_SCREEN;
 
 public class ActualLoadingScreen {
     private static final boolean IS_IPC_CLIENT = Boolean.getBoolean("mlsipc.present");
@@ -36,7 +37,7 @@ public class ActualLoadingScreen {
     private static Thread memoryThread;
     private static boolean titleSet;
 
-    private static boolean runningOnQuilt;
+    static boolean runningOnQuilt; // Accessed from EarlyLoadingAgent
     private static Path configDir;
 
     private static boolean enableMemoryDisplay = true;
@@ -57,15 +58,8 @@ public class ActualLoadingScreen {
                 configDir = FabricLoader.getInstance().getConfigDir().resolve("mod-loading-screen");
             } else {
                 // This code is certainly something. I don't have any ideas for improvement, though.
-                final String javaCommand = System.getProperty("sun.java.command");
-                final int spaceIndex = javaCommand.indexOf(' ');
-                String mainClass = spaceIndex == -1 ? javaCommand : javaCommand.substring(0, spaceIndex);
-                if (mainClass.equals("net.fabricmc.devlaunchinjector.Main")) { // Fabric + Quilt Loom
-                    mainClass = System.getProperty("fabric.dli.main");
-                }
-                runningOnQuilt = mainClass.contains(".quiltmc.");
-
-                configDir = Paths.get("config/mod-loading-screen").toAbsolutePath(); // Not the most robust, I know
+                runningOnQuilt = System.getProperty("java.class.path").contains("quilt-loader");
+                configDir = Paths.get("config/mod-loading-screen").toAbsolutePath();
             }
         }
 
@@ -79,35 +73,45 @@ public class ActualLoadingScreen {
         loadConfig();
 
         if (ENABLE_IPC) {
-            final Path runDir = FabricLoader.getInstance().getGameDir().resolve(".cache/mod-loading-screen");
+            final Path gameDir = fabricReady ? FabricLoader.getInstance().getGameDir() : Paths.get(".").toAbsolutePath();
+            final Path runDir = gameDir.resolve(".cache/mod-loading-screen");
             final Path flatlafDestPath = runDir.resolve("flatlaf.jar");
             try {
-                Files.createDirectories(flatlafDestPath.getParent());
-                Files.copy(
-                    FabricLoader.getInstance()
+                if (fabricReady) {
+                    Files.createDirectories(flatlafDestPath.getParent());
+                    Files.copy(
+                        FabricLoader.getInstance()
+                            .getModContainer("mod-loading-screen")
+                            .orElseThrow(AssertionError::new)
+                            .getRootPaths().get(0)
+                            .resolve("META-INF/jars/flatlaf-3.0.jar"),
+                        flatlafDestPath, StandardCopyOption.REPLACE_EXISTING
+                    );
+                    println("Extracted flatlaf.jar");
+                }
+                final Path mlsJarPath;
+                if (fabricReady) {
+                    mlsJarPath = FabricLoader.getInstance()
                         .getModContainer("mod-loading-screen")
                         .orElseThrow(AssertionError::new)
-                        .getRootPaths().get(0)
-                        .resolve("META-INF/jars/flatlaf-3.0.jar"),
-                    flatlafDestPath, StandardCopyOption.REPLACE_EXISTING
-                );
-                println("Extracted flatlaf.jar");
+                        .getOrigin()
+                        .getPaths()
+                        .get(0);
+                } else {
+                    mlsJarPath = Paths.get(
+                        ActualLoadingScreen.class.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+                    );
+                }
                 ipcOut = new DataOutputStream(
                     new ProcessBuilder(
                         System.getProperty("java.home") + "/bin/java",
                         "-Dmlsipc.present=true",
                         "-Dmlsipc.quilt=" + runningOnQuilt,
                         "-Dmlsipc.config=" + configDir,
-                        "-cp", String.join(
-                            File.pathSeparator,
-                            FabricLoader.getInstance()
-                                .getModContainer("mod-loading-screen")
-                                .orElseThrow(AssertionError::new)
-                                .getOrigin()
-                                .getPaths().get(0)
-                                .toString(),
-                            flatlafDestPath.toString()
-                        ),
+                        "-cp", mlsJarPath + File.pathSeparator + flatlafDestPath,
                         ACTUAL_LOADING_SCREEN.replace('/', '.')
                     )
                         .redirectOutput(ProcessBuilder.Redirect.INHERIT)
@@ -137,7 +141,7 @@ public class ActualLoadingScreen {
         if (fabricReady) {
             setFabricTitle();
         } else {
-            dialog.setTitle(runningOnQuilt ? "Loading Quilt" : "Loading Fabric");
+            dialog.setTitle(runningOnQuilt ? "Loading Quilt Loader" : "Loading Fabric Loader");
         }
         dialog.setResizable(false);
 
@@ -227,21 +231,19 @@ public class ActualLoadingScreen {
         memoryThread.start();
     }
 
-    public static void setTitleFromMetadata(String name, String version) {
-        if (titleSet) return;
+    public static void setTitleFromMetadata(String id, String name, String version) {
+        if (titleSet || IGNORED_BUILTIN.contains(id)) return;
         titleSet = true;
         setTitle("Loading " + name + ' ' + version);
     }
 
     private static void setFabricTitle() {
-        FabricLoader.getInstance()
-            .getAllMods()
-            .stream()
-            .map(ModContainer::getMetadata)
-            .filter(m -> m.getType().equals("builtin"))
-            .filter(m -> !IGNORED_BUILTIN.contains(m.getId()))
-            .findFirst()
-            .ifPresent(m -> setTitleFromMetadata(m.getName(), m.getVersion().getFriendlyString()));
+        for (final ModContainer container : FabricLoader.getInstance().getAllMods()) {
+            final ModMetadata m = container.getMetadata();
+            if (!m.getType().equals("builtin")) continue;
+            setTitleFromMetadata(m.getId(), m.getName(), m.getVersion().getFriendlyString());
+            if (titleSet) break;
+        }
     }
 
     private static void setTitle(String title) {

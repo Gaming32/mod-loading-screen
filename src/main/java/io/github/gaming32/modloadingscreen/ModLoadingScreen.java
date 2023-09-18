@@ -8,24 +8,16 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import net.lenni0451.reflect.Agents;
 import net.lenni0451.reflect.ClassLoaders;
 import net.lenni0451.reflect.Methods;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.*;
 
 import java.nio.file.Files;
-import java.util.ListIterator;
+
+import static io.github.gaming32.modloadingscreen.MlsTransformers.ACTUAL_LOADING_SCREEN;
 
 public class ModLoadingScreen implements LanguageAdapter {
     private static final boolean RUNNING_ON_QUILT = FabricLoader.getInstance().isModLoaded("quilt_loader");
     private static final String ENTRYPOINT_UTILS = RUNNING_ON_QUILT
-        ? "org/quiltmc/loader/impl/entrypoint/EntrypointUtils"
-        : "net/fabricmc/loader/impl/entrypoint/EntrypointUtils";
-    private static final String ENTRYPOINT_CONTAINER = "net/fabricmc/loader/api/entrypoint/EntrypointContainer";
-    private static final String ENTRYPOINT_CONTAINER_IMPL = "net/fabricmc/loader/impl/entrypoint/EntrypointContainerImpl";
-    private static final String MOD_CONTAINER = "net/fabricmc/loader/api/ModContainer";
-    private static final String MOD_METADATA = "net/fabricmc/loader/api/metadata/ModMetadata";
-    public static final String ACTUAL_LOADING_SCREEN = "io/github/gaming32/modloadingscreen/ActualLoadingScreen";
+        ? MlsTransformers.QUILT_ENTRYPOINT_UTILS
+        : MlsTransformers.FABRIC_ENTRYPOINT_UTILS;
 
     @Override
     @SuppressWarnings("unchecked")
@@ -38,6 +30,11 @@ public class ModLoadingScreen implements LanguageAdapter {
 
     public static void init() throws Throwable {
         System.out.println("[ModLoadingScreen] I just want to say... I'm loading *really* early.");
+        if (System.setProperty("mod-loading-screen.loaded", "true") != null) {
+            System.err.println("[ModLoadingScreen] [WARN] Mod Loading Screen installed as both a mod and an agent.");
+            System.err.println("[ModLoadingScreen] [WARN] Please avoid doing this. To avoid issues, the mod has disabled itself.");
+            return;
+        }
 
         ClassLoaders.addToSystemClassPath(
             FabricLoader.getInstance()
@@ -69,128 +66,10 @@ public class ModLoadingScreen implements LanguageAdapter {
 
         Agents.getInstrumentation().addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
-                className.equals(ENTRYPOINT_UTILS) ? instrumentClass(classfileBuffer) : null,
+                MlsTransformers.instrumentClass(className, classfileBuffer),
             true
         );
         Agents.getInstrumentation().retransformClasses(Class.forName(ENTRYPOINT_UTILS.replace('/', '.')));
-    }
-
-    private static byte[] instrumentClass(byte[] bytes) {
-        final ClassNode clazz = new ClassNode();
-        new ClassReader(bytes).accept(clazz, 0);
-
-        instrumentInvoke(clazz);
-        instrumentInvoke0(clazz);
-
-        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
-        clazz.accept(writer);
-        return writer.toByteArray();
-    }
-
-    private static void instrumentInvoke(ClassNode clazz) {
-        final MethodNode method = clazz.methods.stream()
-            .filter(m -> m.name.equals(RUNNING_ON_QUILT ? "invokeContainer" : "invoke"))
-            .findFirst()
-            .orElseThrow(AssertionError::new);
-        final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
-
-        while (it.hasNext()) {
-            final AbstractInsnNode insn = it.next();
-            if (!(insn instanceof InsnNode)) continue;
-            if (insn.getOpcode() == Opcodes.RETURN) break;
-        }
-        it.previous();
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            ACTUAL_LOADING_SCREEN, "maybeCloseAfter",
-            "(Ljava/lang/String;)V",
-            false
-        ));
-    }
-
-    private static void instrumentInvoke0(ClassNode clazz) {
-        final MethodNode method = clazz.methods.stream()
-            .filter(m -> m.name.equals("invoke0"))
-            .findFirst()
-            .orElseThrow(AssertionError::new);
-        final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
-
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            ACTUAL_LOADING_SCREEN, "beforeEntrypointType",
-            "(Ljava/lang/String;Ljava/lang/Class;)V"
-        ));
-
-        final int container = RUNNING_ON_QUILT ? 7 : 6;
-        while (it.hasNext()) {
-            final AbstractInsnNode insn = it.next();
-            if (!(insn instanceof VarInsnNode)) continue;
-            if (insn.getOpcode() == Opcodes.ASTORE && ((VarInsnNode)insn).var == container) break;
-        }
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new VarInsnNode(Opcodes.ALOAD, 1));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKEVIRTUAL,
-            "java/lang/Class", "getSimpleName",
-            "()Ljava/lang/String;"
-        ));
-        if (RUNNING_ON_QUILT) {
-            it.add(new TypeInsnNode(Opcodes.NEW, ENTRYPOINT_CONTAINER_IMPL));
-            it.add(new InsnNode(Opcodes.DUP));
-        }
-        it.add(new VarInsnNode(Opcodes.ALOAD, container));
-        if (RUNNING_ON_QUILT) {
-            it.add(new MethodInsnNode(
-                Opcodes.INVOKESPECIAL,
-                ENTRYPOINT_CONTAINER_IMPL, "<init>",
-                "(Lorg/quiltmc/loader/api/entrypoint/EntrypointContainer;)V"
-            ));
-        }
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKEINTERFACE,
-            ENTRYPOINT_CONTAINER, "getProvider",
-            "()L" + MOD_CONTAINER + ";"
-        ));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKEINTERFACE,
-            MOD_CONTAINER, "getMetadata",
-            "()L" + MOD_METADATA + ";"
-        ));
-        it.add(new InsnNode(Opcodes.DUP));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKEINTERFACE,
-            MOD_METADATA, "getId",
-            "()Ljava/lang/String;"
-        ));
-        it.add(new InsnNode(Opcodes.SWAP));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKEINTERFACE,
-            MOD_METADATA, "getName",
-            "()Ljava/lang/String;"
-        ));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            ACTUAL_LOADING_SCREEN, "beforeSingleEntrypoint",
-            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
-            false
-        ));
-
-        while (it.hasNext()) {
-            final AbstractInsnNode insn = it.next();
-            if (!(insn instanceof InsnNode)) continue;
-            if (insn.getOpcode() == Opcodes.IFNULL) break;
-        }
-        it.previous();
-        it.previous();
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new MethodInsnNode(
-            Opcodes.INVOKESTATIC,
-            ACTUAL_LOADING_SCREEN, "afterEntrypointType",
-            "(Ljava/lang/String;)V"
-        ));
     }
 
     static {
