@@ -187,8 +187,8 @@ public final class LoadingScreenApi {
      * exit the loading screen, and you can add your own entrypoints that should close the loading screen instead. Be
      * careful about mod compatibility when using this!
      *
-     * @apiNote If {@link #getFeatures} doesn't return {@link AvailableFeatures#FINAL_ENTRYPOINTS}, this will return an
-     * empty {@link Set} that does nothing when modified, and changes to it will not be seen by other mods.
+     * @apiNote If {@link #getFeatures} doesn't include {@link AvailableFeatures#FINAL_ENTRYPOINTS}, this will return
+     * an empty {@link Set} that does nothing when modified, and changes to it will not be seen by other mods.
      *
      * @return The mutable set of "final entrypoints".
      *
@@ -210,7 +210,7 @@ public final class LoadingScreenApi {
 
     /**
      * Returns whether the Mod Loading Screen (and the game in general) is running in a headless environment. If
-     * {@link #getFeatures} doesn't return {@link AvailableFeatures#HEADLESS_CHECK}, this will return the value of
+     * {@link #getFeatures} doesn't include {@link AvailableFeatures#HEADLESS_CHECK}, this will return the value of
      * {@link GraphicsEnvironment#isHeadless}.
      *
      * @return {@code true} if running in a headless environment.
@@ -234,7 +234,7 @@ public final class LoadingScreenApi {
     /**
      * Returns whether IPC is being used for the loading screen, and hasn't been disabled with
      * {@code mod-loading-screen.disableIpc}. If {@link #isHeadless} returns {@code true}, this will return
-     * {@code false}. If {@link #getFeatures} doesn't return {@link AvailableFeatures#IPC_CHECK}, this will return
+     * {@code false}. If {@link #getFeatures} doesn't include {@link AvailableFeatures#IPC_CHECK}, this will return
      * {@code false}.
      *
      * @return {@code true} IPC is being used for the loading screen.
@@ -272,9 +272,11 @@ public final class LoadingScreenApi {
 
     /**
      * Returns an {@link Set} of progress bar names. This will be updated dynamically when bars are updated. If
-     * {@link #getFeatures} doesn't return {@link AvailableFeatures#GET_PROGRESS}, this will return an empty set.
+     * {@link #getFeatures} doesn't include {@link AvailableFeatures#GET_PROGRESS}, this will return an empty set.
      *
-     * @apiNote Custom progress bars start with "custom:", followed by their ID.
+     * @apiNote Custom progress bars start with {@code "custom:"}, followed by their ID. If {@link #getFeatures}
+     * includes {@link AvailableFeatures#CUSTOM_PROGRESS_BARS}, entrypoint progress bars start with
+     * {@code "entrypoint:"}
      *
      * @see AvailableFeatures#GET_PROGRESS
      *
@@ -288,12 +290,14 @@ public final class LoadingScreenApi {
 
     /**
      * Returns the current progress of a progress bar, or {@code null} if there is no such progress bar. If
-     * {@link #getFeatures} doesn't return {@link AvailableFeatures#GET_PROGRESS}, this will always return
+     * {@link #getFeatures} doesn't include {@link AvailableFeatures#GET_PROGRESS}, this will always return
      * {@code null}.
      *
      * @param barName The name of the progress bar. In the case of entrypoints, this is the name of the entrypoint.
      *
-     * @apiNote Custom progress bars start with "custom:", followed by their ID.
+     * @apiNote Custom progress bars start with {@code "custom:"}, followed by their ID. If {@link #getFeatures}
+     * includes {@link AvailableFeatures#CUSTOM_PROGRESS_BARS}, entrypoint progress bars start with
+     * {@code "entrypoint:"}
      *
      * @see AvailableFeatures#GET_PROGRESS
      *
@@ -305,7 +309,7 @@ public final class LoadingScreenApi {
     }
 
     /**
-     * Returns whether a loading screen is currently active. If {@link #getFeatures} doesn't return
+     * Returns whether a loading screen is currently active. If {@link #getFeatures} doesn't include
      * {@link AvailableFeatures#OPEN_CHECK}, this will always return {@code false}.
      *
      * @return {@code true} if there is a loading screen open.

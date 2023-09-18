@@ -221,7 +221,8 @@ public class ActualLoadingScreen {
     }
 
     private static void beforeEntrypointType(String name, String type, int entrypointCount) {
-        progress.put(name, 0);
+        final String fullId = "entrypoint:" + name;
+        progress.put(fullId, 0);
 
         if (sendIpc(0, name, type, Integer.toString(entrypointCount))) return;
 
@@ -231,35 +232,37 @@ public class ActualLoadingScreen {
         final JProgressBar progressBar = new JProgressBar(0, entrypointCount);
         progressBar.setStringPainted(true);
         setLabel(progressBar, name, type, null);
-        progressBars.put(name, progressBar);
+        progressBars.put(fullId, progressBar);
         label.add(progressBar, BorderLayout.SOUTH);
         dialog.pack();
     }
 
     public static void beforeSingleEntrypoint(String typeName, String typeType, String modId, String modName) {
-        final Integer oldProgress = progress.get(typeName);
-        progress.put(typeName, oldProgress != null ? oldProgress + 1 : 1);
+        final String fullId = "entrypoint:" + typeName;
+        final Integer oldProgress = progress.get(fullId);
+        progress.put(fullId, oldProgress != null ? oldProgress + 1 : 1);
 
         if (sendIpc(1, typeName, typeType, modId, modName)) return;
 
         println("Calling entrypoint container for mod '" + modId + "'");
         if (dialog == null) return;
 
-        final JProgressBar progressBar = progressBars.get(typeName);
+        final JProgressBar progressBar = progressBars.get(fullId);
         if (progressBar == null) return;
-        progressBar.setValue(progress.get(typeName));
+        progressBar.setValue(progress.get(fullId));
         setLabel(progressBar, typeName, typeType, modName);
     }
 
     public static void afterEntrypointType(String name) {
-        progress.remove(name);
+        final String fullId = "entrypoint:" + name;
+        progress.remove(fullId);
 
         if (sendIpc(2, name)) return;
 
         println("Finished loading screen for entrypoint '" + name + "'");
         if (dialog == null) return;
 
-        final JProgressBar progressBar = progressBars.remove(name);
+        final JProgressBar progressBar = progressBars.remove(fullId);
         if (progressBar == null) return;
         label.remove(progressBar);
         dialog.pack();
