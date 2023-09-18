@@ -2,6 +2,7 @@ package io.github.gaming32.modloadingscreen;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,14 +17,7 @@ import static io.github.gaming32.modloadingscreen.ModLoadingScreen.ACTUAL_LOADIN
 
 public class ActualLoadingScreen {
     private static final boolean IS_IPC_CLIENT = Boolean.getBoolean("mlsipc.present");
-    private static final boolean RUNNING_ON_QUILT = Boolean.getBoolean("mlsipc.quilt") ||
-        (!IS_IPC_CLIENT && FabricLoader.getInstance().isModLoaded("quilt_loader"));
-    private static final Path CONFIG_DIR = IS_IPC_CLIENT
-        ? Paths.get(System.getProperty("mlsipc.config"))
-        : FabricLoader.getInstance().getConfigDir().resolve("mod-loading-screen");
-    private static final Set<String> IGNORED_BUILTIN = new HashSet<>(Arrays.asList(
-        RUNNING_ON_QUILT ? "quilt_loader" : "fabricloader", "java"
-    ));
+    private static final Set<String> IGNORED_BUILTIN = new HashSet<>(Collections.singleton("java"));
     public static final Set<String> FINAL_ENTRYPOINTS = new HashSet<>(Arrays.asList(
         "client", "server", "client_init", "server_init"
     ));
@@ -40,33 +34,48 @@ public class ActualLoadingScreen {
     private static DataOutputStream ipcOut;
     private static PrintStream logFile;
     private static Thread memoryThread;
+    private static boolean titleSet;
+
+    private static boolean runningOnQuilt;
+    private static Path configDir;
 
     private static boolean enableMemoryDisplay = true;
 
-    public static void startLoadingScreen() {
+    public static void startLoadingScreen(boolean fabricReady) {
         if (IS_HEADLESS) {
             println("Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
         }
+        println("Opening loading screen");
+
+        if (IS_IPC_CLIENT) {
+            runningOnQuilt = Boolean.getBoolean("mlsipc.quilt");
+            configDir = Paths.get(System.getProperty("mlsipc.config"));
+        } else {
+            if (fabricReady) {
+                runningOnQuilt = FabricLoader.getInstance().isModLoaded("quilt_loader");
+                configDir = FabricLoader.getInstance().getConfigDir().resolve("mod-loading-screen");
+            } else {
+                // This code is certainly something. I don't have any ideas for improvement, though.
+                final String javaCommand = System.getProperty("sun.java.command");
+                final int spaceIndex = javaCommand.indexOf(' ');
+                String mainClass = spaceIndex == -1 ? javaCommand : javaCommand.substring(0, spaceIndex);
+                if (mainClass.equals("net.fabricmc.devlaunchinjector.Main")) { // Fabric + Quilt Loom
+                    mainClass = System.getProperty("fabric.dli.main");
+                }
+                runningOnQuilt = mainClass.contains(".quiltmc.");
+
+                configDir = Paths.get("config/mod-loading-screen").toAbsolutePath(); // Not the most robust, I know
+            }
+        }
+
+        FINAL_ENTRYPOINTS.add(runningOnQuilt ? "quilt_loader" : "fabricloader");
+
         try {
-            Files.createDirectories(CONFIG_DIR);
+            Files.createDirectories(configDir);
         } catch (IOException e) {
             println("Failed to create config dir", e);
         }
-
-        println("Opening loading screen");
-
-        final String gameNameAndVersion = IS_IPC_CLIENT
-            ? System.getProperty("mlsipc.game")
-            : FabricLoader.getInstance()
-                .getAllMods()
-                .stream()
-                .filter(m -> m.getMetadata().getType().equals("builtin"))
-                .filter(m -> !IGNORED_BUILTIN.contains(m.getMetadata().getId()))
-                .findFirst()
-                .map(m -> m.getMetadata().getName() + ' ' + m.getMetadata().getVersion())
-                .orElse("Unknown Game");
-
         loadConfig();
 
         if (ENABLE_IPC) {
@@ -87,9 +96,8 @@ public class ActualLoadingScreen {
                     new ProcessBuilder(
                         System.getProperty("java.home") + "/bin/java",
                         "-Dmlsipc.present=true",
-                        "-Dmlsipc.quilt=" + RUNNING_ON_QUILT,
-                        "-Dmlsipc.game=" + gameNameAndVersion,
-                        "-Dmlsipc.config=" + CONFIG_DIR,
+                        "-Dmlsipc.quilt=" + runningOnQuilt,
+                        "-Dmlsipc.config=" + configDir,
                         "-cp", String.join(
                             File.pathSeparator,
                             FabricLoader.getInstance()
@@ -113,6 +121,9 @@ public class ActualLoadingScreen {
                 println("Failed to setup IPC client. Aborting.", e);
                 return;
             }
+            if (fabricReady) {
+                setFabricTitle();
+            }
             startMemoryThread();
             return;
         }
@@ -123,7 +134,11 @@ public class ActualLoadingScreen {
         UIManager.getDefaults().put("ProgressBar.selectionForeground", new Color(255, 255, 255));
 
         dialog = new JFrame();
-        dialog.setTitle("Loading " + gameNameAndVersion);
+        if (fabricReady) {
+            setFabricTitle();
+        } else {
+            dialog.setTitle(runningOnQuilt ? "Loading Quilt" : "Loading Fabric");
+        }
         dialog.setResizable(false);
 
         try {
@@ -136,11 +151,11 @@ public class ActualLoadingScreen {
 
         ImageIcon icon;
         try {
-            final Path backgroundPath = CONFIG_DIR.resolve("background.png");
+            final Path backgroundPath = configDir.resolve("background.png");
             icon = new ImageIcon(
                 Files.exists(backgroundPath)
                     ? backgroundPath.toUri().toURL()
-                    : ClassLoader.getSystemResource("assets/mod-loading-screen/" + (RUNNING_ON_QUILT ? "quilt-banner.png" : "aof4.png"))
+                    : ClassLoader.getSystemResource("assets/mod-loading-screen/" + (runningOnQuilt ? "quilt-banner.png" : "aof4.png"))
             );
             icon.setImage(icon.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
         } catch (Exception e) {
@@ -168,7 +183,7 @@ public class ActualLoadingScreen {
     }
 
     private static void loadConfig() {
-        final Path configFile = CONFIG_DIR.resolve("config.properties");
+        final Path configFile = configDir.resolve("config.properties");
 
         final Properties configProperties = new Properties();
         try (InputStream is = Files.newInputStream(configFile)) {
@@ -210,6 +225,30 @@ public class ActualLoadingScreen {
         }, "MemoryUsageListener");
         memoryThread.setDaemon(true);
         memoryThread.start();
+    }
+
+    public static void setTitleFromMetadata(String name, String version) {
+        if (titleSet) return;
+        titleSet = true;
+        setTitle("Loading " + name + ' ' + version);
+    }
+
+    private static void setFabricTitle() {
+        FabricLoader.getInstance()
+            .getAllMods()
+            .stream()
+            .map(ModContainer::getMetadata)
+            .filter(m -> m.getType().equals("builtin"))
+            .filter(m -> !IGNORED_BUILTIN.contains(m.getId()))
+            .findFirst()
+            .ifPresent(m -> setTitleFromMetadata(m.getName(), m.getVersion().getFriendlyString()));
+    }
+
+    private static void setTitle(String title) {
+        if (sendIpc(6, title)) return;
+        if (dialog != null) {
+            dialog.setTitle(title);
+        }
     }
 
     public static void beforeEntrypointType(String name, Class<?> type) {
@@ -269,10 +308,11 @@ public class ActualLoadingScreen {
     }
 
     public static void maybeCloseAfter(String type) {
+        if (!isOpen()) return;
         if (
             !FINAL_ENTRYPOINTS.contains(type) ||
                 (
-                    RUNNING_ON_QUILT &&
+                    runningOnQuilt &&
                     FabricLoader.getInstance()
                         .getModContainer("quilt_base")
                         .map(c -> {
@@ -294,6 +334,7 @@ public class ActualLoadingScreen {
         progress.put(fullId, 0);
 
         if (sendIpc(4, id, title, Integer.toString(max))) return;
+        if (dialog == null) return;
 
         final JProgressBar progressBar = new JProgressBar(0, max);
         progressBar.setStringPainted(true);
@@ -315,6 +356,7 @@ public class ActualLoadingScreen {
         }
 
         if (sendIpc(5, args)) return;
+        if (dialog == null) return;
 
         if (args[1].equals("close")) {
             label.remove(progressBars.remove(fullId));
@@ -440,7 +482,7 @@ public class ActualLoadingScreen {
                 }
             } catch (IOException e) {
                 if (e.getMessage().equals("The pipe is being closed")) {
-                    println("Exiting process due to user request");
+                    println("Exiting process due to IPC exit");
                     System.exit(0);
                 }
                 println("Failed to send IPC message (id " + id + "): " + String.join("\t", args), e);
@@ -453,7 +495,7 @@ public class ActualLoadingScreen {
     public static void main(String[] args) {
         try (PrintStream logFile = new PrintStream("ipc-client-log.txt")) {
             ActualLoadingScreen.logFile = logFile;
-            startLoadingScreen();
+            startLoadingScreen(false);
             final DataInputStream in = new DataInputStream(System.in);
             mainLoop:
             while (true) {
@@ -480,6 +522,9 @@ public class ActualLoadingScreen {
                         break;
                     case 5:
                         customProgressBarOp(packetArgs);
+                        break;
+                    case 6:
+                        setTitle(packetArgs[0]);
                         break;
                     case 255:
                         break mainLoop;

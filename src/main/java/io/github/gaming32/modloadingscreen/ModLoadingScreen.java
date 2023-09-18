@@ -64,8 +64,8 @@ public class ModLoadingScreen implements LanguageAdapter {
 
         Methods.invoke(null, Methods.getDeclaredMethod(
             ClassLoaders.defineClass(ClassLoader.getSystemClassLoader(), ACTUAL_LOADING_SCREEN.replace('/', '.'), alsData),
-            "startLoadingScreen"
-        ));
+            "startLoadingScreen", boolean.class
+        ), true);
 
         Agents.getInstrumentation().addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->

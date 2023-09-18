@@ -184,6 +184,7 @@ public final class LoadingScreenApi {
         } catch (RuntimeException e) {
             // Quilt bug! Quilt's EntrypointExceptions are never converted to Fabric's!
             // https://github.com/QuiltMC/quilt-loader/issues/366
+            // Fixed in Quilt since 0.21.0-beta.4. Fix kept for backwards compat.
             Class<?> clazz = e.getClass();
             while (clazz != null) {
                 if (clazz.getName().equals("org.quiltmc.loader.api.entrypoint.EntrypointException")) {
