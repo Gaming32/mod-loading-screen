@@ -27,12 +27,10 @@ public class EarlyLoadingAgent {
         instrumentation.appendToSystemClassLoaderSearch(new JarFile(flatlafDestPath.toFile()));
 
         ActualLoadingScreen.startLoadingScreen(false);
-        final boolean runningOnQuilt = ActualLoadingScreen.runningOnQuilt;
         instrumentation.addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
                 MlsTransformers.instrumentClass(className, classfileBuffer),
             false
         );
     }
-
 }
