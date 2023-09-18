@@ -17,6 +17,7 @@ public final class CustomProgressBar implements Closeable {
     private int progress;
     private int minimum;
     private int maximum;
+    private boolean indeterminate;
 
     CustomProgressBar(String id, boolean isReal, String title, int maximum) {
         this.id = id;
@@ -143,6 +144,23 @@ public final class CustomProgressBar implements Closeable {
      */
     public String getTitle() {
         return title;
+    }
+
+    /**
+     * Sets whether the progress bar is indeterminate. If the progress bar is indeterminate, {@link #setProgress} will
+     * still take effect, but it won't be visible until the progress bar is determinate.
+     */
+    public void setIndeterminate(boolean indeterminate) {
+        checkClosed();
+        this.indeterminate = indeterminate;
+        LoadingScreenApi.customProgressBarOp(id, "indeterminate", Boolean.toString(indeterminate));
+    }
+
+    /**
+     * Returns whether the progress bar is currently indeterminate.
+     */
+    public boolean isIndeterminate() {
+        return indeterminate;
     }
 
     /**

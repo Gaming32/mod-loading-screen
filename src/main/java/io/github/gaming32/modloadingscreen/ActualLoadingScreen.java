@@ -286,7 +286,6 @@ public class ActualLoadingScreen {
                     !FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
                 )
         ) return;
-        sendIpc(255);
         close();
     }
 
@@ -337,6 +336,9 @@ public class ActualLoadingScreen {
             case "title":
                 progressBar.setString(args[2]);
                 break;
+            case "indeterminate":
+                progressBar.setIndeterminate(Boolean.parseBoolean(args[2]));
+                break;
         }
     }
 
@@ -344,6 +346,7 @@ public class ActualLoadingScreen {
         if (memoryThread != null) {
             memoryThread.interrupt();
         }
+        sendIpc(255);
         if (dialog != null) {
             dialog.dispose();
             dialog = null;
@@ -437,6 +440,7 @@ public class ActualLoadingScreen {
                 }
             } catch (IOException e) {
                 if (e.getMessage().equals("The pipe is being closed")) {
+                    println("Exiting process due to user request");
                     System.exit(0);
                 }
                 println("Failed to send IPC message (id " + id + "): " + String.join("\t", args), e);
