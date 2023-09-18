@@ -1,5 +1,6 @@
 package io.github.gaming32.modloadingscreen.api;
 
+import net.fabricmc.loader.api.EntrypointException;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
 import net.fabricmc.loader.api.VersionParsingException;
@@ -171,14 +172,32 @@ public final class LoadingScreenApi {
      * Invokes an entrypoint with a clean API. If Mod Loading Screen is available, its progress will show up in the
      * loading screen. If you are developing a Quilt mod, you should use {@code EntrypointUtil} instead.
      *
-     * @throws net.fabricmc.loader.api.EntrypointException If any entrypoints threw an exception
+     * @throws EntrypointException If any entrypoints threw an exception
      *
      * @apiNote This feature is <i>always</i> available, regardless of the return value of {@link #getFeatures}.
      * Calling this without Mod Loading Screen will work always, but just won't show up in the (non-existent) loading
      * screen.
      */
-    public static <T> void invokeEntrypoint(String name, Class<T> type, Consumer<? super T> invoker) {
-        EntrypointUtils.invoke(name, type, invoker);
+    public static <T> void invokeEntrypoint(String name, Class<T> type, Consumer<? super T> invoker) throws EntrypointException {
+        try {
+            EntrypointUtils.invoke(name, type, invoker);
+        } catch (RuntimeException e) {
+            // Quilt bug! Quilt's EntrypointExceptions are never converted to Fabric's!
+            // https://github.com/QuiltMC/quilt-loader/issues/366
+            Class<?> clazz = e.getClass();
+            while (clazz != null) {
+                if (clazz.getName().equals("org.quiltmc.loader.api.entrypoint.EntrypointException")) {
+                    try {
+                        throw new EntrypointException((String)clazz.getDeclaredMethod("getKey").invoke(e), e);
+                    } catch (ReflectiveOperationException ex) {
+                        e.addSuppressed(ex);
+                        throw e;
+                    }
+                }
+                clazz = clazz.getSuperclass();
+            }
+            throw e;
+        }
     }
 
     /**
