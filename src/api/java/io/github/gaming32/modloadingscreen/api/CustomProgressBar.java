@@ -57,6 +57,7 @@ public final class CustomProgressBar implements Closeable {
     public void setProgress(int progress) {
         progress = Math.min(maximum, Math.max(minimum, progress));
         checkClosed();
+        if (progress == this.progress) return;
         this.progress = progress;
         LoadingScreenApi.customProgressBarOp(id, "progress", Integer.toString(progress));
     }
@@ -96,6 +97,7 @@ public final class CustomProgressBar implements Closeable {
             throw new IllegalArgumentException("maximum may not be less than minimum");
         }
         checkClosed();
+        if (maximum == this.maximum) return;
         this.maximum = maximum;
         LoadingScreenApi.customProgressBarOp(id, "maximum", Integer.toString(maximum));
     }
@@ -117,6 +119,7 @@ public final class CustomProgressBar implements Closeable {
             throw new IllegalArgumentException("minimum may not be greater than maximum");
         }
         checkClosed();
+        if (minimum == this.minimum) return;
         this.minimum = minimum;
         LoadingScreenApi.customProgressBarOp(id, "minimum", Integer.toString(minimum));
     }
@@ -135,6 +138,7 @@ public final class CustomProgressBar implements Closeable {
     public void setTitle(String title) {
         Objects.requireNonNull(title, "title");
         checkClosed();
+        if (title.equals(this.title)) return;
         this.title = title;
         LoadingScreenApi.customProgressBarOp(id, "title", title);
     }
@@ -152,6 +156,7 @@ public final class CustomProgressBar implements Closeable {
      */
     public void setIndeterminate(boolean indeterminate) {
         checkClosed();
+        if (indeterminate == this.indeterminate) return;
         this.indeterminate = indeterminate;
         LoadingScreenApi.customProgressBarOp(id, "indeterminate", Boolean.toString(indeterminate));
     }

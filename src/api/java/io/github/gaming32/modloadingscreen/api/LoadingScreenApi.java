@@ -341,6 +341,8 @@ public final class LoadingScreenApi {
         if (bar == null) {
             CUSTOM_PROGRESS_BARS.put(id, bar = createCustomProgressBar(id, title, max));
         }
+        bar.setTitle(title);
+        bar.setMaximum(max);
         return bar;
     }
 
