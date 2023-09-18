@@ -5,6 +5,7 @@ import net.fabricmc.loader.api.Version;
 import net.fabricmc.loader.api.VersionParsingException;
 import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import net.fabricmc.loader.impl.entrypoint.EntrypointUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 
@@ -12,19 +13,20 @@ import java.awt.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
-public class LoadingScreenApi {
+public final class LoadingScreenApi {
+    static final Map<String, CustomProgressBar> CUSTOM_PROGRESS_BARS = new HashMap<>();
+
     private static final long FEATURES;
     private static final MethodHandle FINAL_ENTRYPOINTS;
     private static final MethodHandle IS_HEADLESS;
     private static final MethodHandle ENABLE_IPC;
     private static final MethodHandle PROGRESS;
     private static final MethodHandle IS_OPEN;
+    private static final MethodHandle CREATE_CUSTOM_PROGRESS_BAR;
+    private static final MethodHandle CUSTOM_PROGRESS_BAR_OP;
 
     static {
         long features = 0;
@@ -33,6 +35,8 @@ public class LoadingScreenApi {
         MethodHandle enableIpc = null;
         MethodHandle progress = null;
         MethodHandle isOpen = null;
+        MethodHandle createCustomProgressBar = null;
+        MethodHandle customProgressBarOp = null;
 
         final MethodHandles.Lookup lookup = MethodHandles.lookup();
         try {
@@ -74,6 +78,23 @@ public class LoadingScreenApi {
             } catch (Exception e) {
                 loadFailed(">=1.0.3", AvailableFeatures.OPEN_CHECK, e);
             }
+
+            try {
+                createCustomProgressBar = lookup.findStatic(
+                    alsClass, "createCustomProgressBar",
+                    MethodType.methodType(void.class, String.class, String.class, int.class)
+                );
+                customProgressBarOp = lookup.findStatic(
+                    alsClass, "customProgressBarOp",
+                    MethodType.methodType(void.class, String[].class)
+                );
+                features |= AvailableFeatures.CUSTOM_PROGRESS_BARS;
+            } catch (Exception e) {
+                createCustomProgressBar = null;
+                loadFailed(">=1.0.4", AvailableFeatures.CUSTOM_PROGRESS_BARS, e);
+            }
+
+            System.out.println("[ModLoadingScreen] API loaded with features: " + AvailableFeatures.toString(features));
         } catch (Exception e) {
             final String message = "[ModLoadingScreen] Failed to load LoadingScreenApi. No API features are available.";
             if (FabricLoader.getInstance().isModLoaded("mod-loading-screen")) {
@@ -83,7 +104,7 @@ public class LoadingScreenApi {
                 // This API could be called with Mod Loading Screen simply absent, in which case this is *not* an error
                 // condition
                 System.out.println(message);
-                System.out.println("[ModLoadingScreen] This is not an error, because Mod Loading Screen isn't installed anyway.");
+                System.out.println("[ModLoadingScreen] This is not an error, because Mod Loading Screen is not installed.");
             }
         }
 
@@ -93,8 +114,8 @@ public class LoadingScreenApi {
         ENABLE_IPC = enableIpc;
         PROGRESS = progress;
         IS_OPEN = isOpen;
-
-        System.out.println("[ModLoadingScreen] API loaded with features: " + AvailableFeatures.toString(FEATURES));
+        CREATE_CUSTOM_PROGRESS_BAR = createCustomProgressBar;
+        CUSTOM_PROGRESS_BAR_OP = customProgressBarOp;
     }
 
     private static void loadFailed(String mlsVersionRequired, long feature, Exception e) {
@@ -117,6 +138,9 @@ public class LoadingScreenApi {
                     throw new RuntimeException(versionParsingException);
                 }
             });
+    }
+
+    private LoadingScreenApi() {
     }
 
     /**
@@ -178,7 +202,7 @@ public class LoadingScreenApi {
             return new HashSet<>();
         }
         try {
-            return (Set<String>)FINAL_ENTRYPOINTS.invoke();
+            return (Set<String>)FINAL_ENTRYPOINTS.invokeExact();
         } catch (Throwable t) {
             return rethrow(t);
         }
@@ -201,7 +225,7 @@ public class LoadingScreenApi {
             return GraphicsEnvironment.isHeadless();
         }
         try {
-            return (boolean)IS_HEADLESS.invoke();
+            return (boolean)IS_HEADLESS.invokeExact();
         } catch (Throwable t) {
             return rethrow(t);
         }
@@ -228,7 +252,7 @@ public class LoadingScreenApi {
             return false;
         }
         try {
-            return (boolean)ENABLE_IPC.invoke();
+            return (boolean)ENABLE_IPC.invokeExact();
         } catch (Throwable t) {
             return rethrow(t);
         }
@@ -240,7 +264,7 @@ public class LoadingScreenApi {
             return Collections.emptyMap();
         }
         try {
-            return (Map<String, Integer>)PROGRESS.invoke();
+            return (Map<String, Integer>)PROGRESS.invokeExact();
         } catch (Throwable t) {
             return rethrow(t);
         }
@@ -249,6 +273,8 @@ public class LoadingScreenApi {
     /**
      * Returns an {@link Set} of progress bar names. This will be updated dynamically when bars are updated. If
      * {@link #getFeatures} doesn't return {@link AvailableFeatures#GET_PROGRESS}, this will return an empty set.
+     *
+     * @apiNote Custom progress bars start with "custom:", followed by their ID.
      *
      * @see AvailableFeatures#GET_PROGRESS
      *
@@ -267,16 +293,17 @@ public class LoadingScreenApi {
      *
      * @param barName The name of the progress bar. In the case of entrypoints, this is the name of the entrypoint.
      *
+     * @apiNote Custom progress bars start with "custom:", followed by their ID.
+     *
      * @see AvailableFeatures#GET_PROGRESS
      *
      * @since 1.0.3
      */
     @Nullable
-    public static Integer getProgress(String barName) {
+    public static Integer getProgress(@NotNull String barName) {
         return getAllProgress().get(barName);
     }
 
-    // TODO: Put a note in this when custom progress bars are added.
     /**
      * Returns whether a loading screen is currently active. If {@link #getFeatures} doesn't return
      * {@link AvailableFeatures#OPEN_CHECK}, this will always return {@code false}.
@@ -292,9 +319,47 @@ public class LoadingScreenApi {
             return false;
         }
         try {
-            return (boolean)IS_OPEN.invoke();
+            return (boolean)IS_OPEN.invokeExact();
         } catch (Throwable t) {
             return rethrow(t);
+        }
+    }
+
+    /**
+     * Creates a custom progress bar.
+     * @param title The title of the progress bar. This is the full string to display.
+     * @param max The maximum value of the progress bar. It will <i>not</i> be removed automatically when this is
+     *            reached.
+     * @return The {@link CustomProgressBar} reference to the progress bar.
+     */
+    public static CustomProgressBar getCustomProgressBar(@NotNull String id, @NotNull String title, int max) {
+        CustomProgressBar bar = CUSTOM_PROGRESS_BARS.get(id);
+        if (bar == null) {
+            CUSTOM_PROGRESS_BARS.put(id, bar = createCustomProgressBar(id, title, max));
+        }
+        return bar;
+    }
+
+    private static CustomProgressBar createCustomProgressBar(String id, String title, int max) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(title, "title");
+        if (CREATE_CUSTOM_PROGRESS_BAR == null) {
+            return new CustomProgressBar(id, false, title, max);
+        }
+        try {
+            CREATE_CUSTOM_PROGRESS_BAR.invokeExact(id, title, max);
+        } catch (Throwable t) {
+            rethrow(t);
+        }
+        return new CustomProgressBar(id, true, title, max);
+    }
+
+    static void customProgressBarOp(String... args) {
+        if (CUSTOM_PROGRESS_BAR_OP == null) return;
+        try {
+            CUSTOM_PROGRESS_BAR_OP.invokeExact(args);
+        } catch (Throwable t) {
+            rethrow(t);
         }
     }
 

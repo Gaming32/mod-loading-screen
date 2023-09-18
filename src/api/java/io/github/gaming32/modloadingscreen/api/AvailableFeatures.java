@@ -2,7 +2,7 @@ package io.github.gaming32.modloadingscreen.api;
 
 import java.util.StringJoiner;
 
-public class AvailableFeatures {
+public final class AvailableFeatures {
     /**
      * @since 1.0.3
      * @see LoadingScreenApi#getFinalEntrypoints
@@ -37,14 +37,31 @@ public class AvailableFeatures {
     public static final long OPEN_CHECK = 1L << 4;
 
     /**
+     * @since 1.0.4
+     * @see LoadingScreenApi#getCustomProgressBar
+     * @see CustomProgressBar
+     */
+    public static final long CUSTOM_PROGRESS_BARS = 1L << 5;
+
+    /**
      * All the features that should be available on version 1.0.3.
      *
      * @since 1.0.3
      */
     public static final long V1_0_3 = FINAL_ENTRYPOINTS | HEADLESS_CHECK | IPC_CHECK | GET_PROGRESS | OPEN_CHECK;
 
+    /**
+     * All the features that should be available on version 1.0.4.
+     *
+     * @since 1.0.4
+     */
+    public static final long V1_0_4 = V1_0_3 | CUSTOM_PROGRESS_BARS;
+
     private static final long MIN_FEATURE = FINAL_ENTRYPOINTS;
-    private static final long MAX_FEATURE = OPEN_CHECK;
+    private static final long MAX_FEATURE = CUSTOM_PROGRESS_BARS;
+
+    private AvailableFeatures() {
+    }
 
     public static String toString(long features) {
         if (Long.bitCount(features) <= 1L) {
@@ -59,6 +76,8 @@ public class AvailableFeatures {
                     return "GET_PROGRESS";
                 case (int)OPEN_CHECK:
                     return "OPEN_CHECK";
+                case (int)CUSTOM_PROGRESS_BARS:
+                    return "CUSTOM_PROGRESS_BARS";
             }
             return "";
         }

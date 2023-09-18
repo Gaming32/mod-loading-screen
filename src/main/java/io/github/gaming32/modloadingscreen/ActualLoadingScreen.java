@@ -283,8 +283,58 @@ public class ActualLoadingScreen {
                     !FabricLoader.getInstance().getEntrypointContainers(type + "_init", Object.class).isEmpty()
                 )
         ) return;
-        sendIpc(4);
+        sendIpc(255);
         close();
+    }
+
+    public static void createCustomProgressBar(String id, String title, int max) {
+        final String fullId = "custom:" + id;
+        progress.put(fullId, 0);
+
+        if (sendIpc(4, id, title, Integer.toString(max))) return;
+
+        final JProgressBar progressBar = new JProgressBar(0, max);
+        progressBar.setStringPainted(true);
+        progressBar.setString(title);
+        progressBars.put(fullId, progressBar);
+        label.add(progressBar, BorderLayout.SOUTH);
+        dialog.pack();
+    }
+
+    public static void customProgressBarOp(String... args) {
+        final String fullId = "custom:" + args[0];
+        switch (args[1]) {
+            case "progress":
+                progress.put(fullId, Integer.parseInt(args[2]));
+                break;
+            case "close":
+                progress.remove(fullId);
+                break;
+        }
+
+        if (sendIpc(5, args)) return;
+
+        if (args[1].equals("close")) {
+            label.remove(progressBars.remove(fullId));
+            dialog.pack();
+            return;
+        }
+
+        final JProgressBar progressBar = progressBars.get(fullId);
+        switch (args[1]) {
+            case "progress":
+                progressBar.setValue(Integer.parseInt(args[2]));
+                break;
+            case "maximum":
+                progressBar.setMaximum(Integer.parseInt(args[2]));
+                break;
+            case "minimum":
+                progressBar.setMinimum(Integer.parseInt(args[2]));
+                break;
+            case "title":
+                progressBar.setString(args[2]);
+                break;
+        }
     }
 
     private static void close() {
@@ -400,7 +450,7 @@ public class ActualLoadingScreen {
             final DataInputStream in = new DataInputStream(System.in);
             mainLoop:
             while (true) {
-                final int packetId = in.readByte();
+                final int packetId = in.readByte() & 0xff;
                 final String[] packetArgs = new String[in.readByte()];
                 for (int i = 0; i < packetArgs.length; i++) {
                     packetArgs[i] = in.readUTF();
@@ -419,6 +469,12 @@ public class ActualLoadingScreen {
                         updateMemoryUsage0(Long.parseLong(packetArgs[0]), Long.parseLong(packetArgs[1]));
                         break;
                     case 4:
+                        createCustomProgressBar(packetArgs[0], packetArgs[1], Integer.parseInt(packetArgs[2]));
+                        break;
+                    case 5:
+                        customProgressBarOp(packetArgs);
+                        break;
+                    case 255:
                         break mainLoop;
                 }
             }
