@@ -70,7 +70,7 @@ public final class MlsTransformers {
                     break;
             }
             if (transformer != null) {
-                System.out.println("[ModLoadingScreen] [EarlyLoadingAgent] Transforming " + name);
+                System.out.println("[ModLoadingScreen] Transforming " + name);
                 final ClassNode clazz = new ClassNode();
                 new ClassReader(bytes).accept(clazz, 0);
                 for (final Consumer<ClassNode> part : transformer) {

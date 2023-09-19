@@ -178,7 +178,7 @@ public class ActualLoadingScreen {
             dialog.add(memoryBar, BorderLayout.NORTH);
         }
 
-        dialog.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        dialog.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         dialog.setVisible(true);
@@ -274,8 +274,9 @@ public class ActualLoadingScreen {
         progressBar.setStringPainted(true);
         setLabel(progressBar, name, type, null);
         progressBars.put(fullId, progressBar);
-        label.add(progressBar, BorderLayout.SOUTH);
-        dialog.pack();
+        label.add(progressBar, BorderLayout.SOUTH, 1);
+        label.revalidate();
+        label.repaint();
     }
 
     public static void beforeSingleEntrypoint(String typeName, String typeType, String modId, String modName) {
@@ -306,7 +307,8 @@ public class ActualLoadingScreen {
         final JProgressBar progressBar = progressBars.remove(fullId);
         if (progressBar == null) return;
         label.remove(progressBar);
-        dialog.pack();
+        label.revalidate();
+        label.repaint();
     }
 
     public static void maybeCloseAfter(String type) {
@@ -342,8 +344,9 @@ public class ActualLoadingScreen {
         progressBar.setStringPainted(true);
         progressBar.setString(title);
         progressBars.put(fullId, progressBar);
-        label.add(progressBar, BorderLayout.SOUTH);
-        dialog.pack();
+        label.add(progressBar, BorderLayout.SOUTH, 1);
+        label.revalidate();
+        label.repaint();
     }
 
     public static void customProgressBarOp(String... args) {
@@ -362,7 +365,8 @@ public class ActualLoadingScreen {
 
         if (args[1].equals("close")) {
             label.remove(progressBars.remove(fullId));
-            dialog.pack();
+            label.revalidate();
+            label.repaint();
             return;
         }
 
