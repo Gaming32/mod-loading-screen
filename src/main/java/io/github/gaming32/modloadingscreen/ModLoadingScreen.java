@@ -64,12 +64,13 @@ public class ModLoadingScreen implements LanguageAdapter {
             "startLoadingScreen", boolean.class
         ), true);
 
+        final Class<?> entrypointUtils = Class.forName(ENTRYPOINT_UTILS.replace('/', '.'));
         Agents.getInstrumentation().addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
                 MlsTransformers.instrumentClass(className, classfileBuffer),
             true
         );
-        Agents.getInstrumentation().retransformClasses(Class.forName(ENTRYPOINT_UTILS.replace('/', '.')));
+        Agents.getInstrumentation().retransformClasses(entrypointUtils);
     }
 
     static {
