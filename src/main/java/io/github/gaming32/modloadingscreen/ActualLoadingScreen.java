@@ -146,27 +146,30 @@ public class ActualLoadingScreen {
         dialog.setResizable(false);
 
         try {
+            final Path iconPath = configDir.resolve("icon.png");
             dialog.setIconImage(ImageIO.read(
-                ClassLoader.getSystemResource("assets/mod-loading-screen/icon.png"))
-            );
+                Files.exists(iconPath)
+                    ? iconPath.toUri().toURL()
+                    : ClassLoader.getSystemResource("assets/mod-loading-screen/icon.png")
+            ));
         } catch (Exception e) {
             println("Failed to load icon.png", e);
         }
 
-        ImageIcon icon;
+        ImageIcon background;
         try {
             final Path backgroundPath = configDir.resolve("background.png");
-            icon = new ImageIcon(
+            background = new ImageIcon(
                 Files.exists(backgroundPath)
                     ? backgroundPath.toUri().toURL()
                     : ClassLoader.getSystemResource("assets/mod-loading-screen/" + (runningOnQuilt ? "quilt-banner.png" : "aof4.png"))
             );
-            icon.setImage(icon.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
+            background.setImage(background.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
         } catch (Exception e) {
             println("Failed to load background.png", e);
-            icon = null;
+            background = null;
         }
-        label = new JLabel(icon);
+        label = new JLabel(background);
         final BoxLayout layout = new BoxLayout(label, BoxLayout.Y_AXIS);
         label.setLayout(layout);
         label.add(Box.createVerticalGlue());
@@ -206,7 +209,8 @@ public class ActualLoadingScreen {
 
         try (OutputStream os = Files.newOutputStream(configFile)) {
             configProperties.store(os,
-                "To use a custom background image, create a file named background.png in this folder. The recommended size is 960x540."
+                "To use a custom background image, create a file named background.png in this folder. The recommended size is 960x540.\n" +
+                    "To use a custom icon image, create a file named icon.png in this folder. It should be square."
             );
         } catch (Exception e) {
             println("Failed to write config", e);
