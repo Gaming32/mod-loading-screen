@@ -5,6 +5,7 @@ import net.fabricmc.loader.api.LanguageAdapter;
 import net.fabricmc.loader.api.LanguageAdapterException;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
+import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 import net.lenni0451.reflect.Agents;
 import net.lenni0451.reflect.ClassLoaders;
 import net.lenni0451.reflect.Methods;
@@ -64,19 +65,28 @@ public class ModLoadingScreen implements LanguageAdapter {
             "startLoadingScreen", boolean.class
         ), true);
 
-        final Class<?> entrypointUtils = Class.forName(ENTRYPOINT_UTILS.replace('/', '.'));
+        final boolean isFabric01423 = VersionPredicate.parse(">=0.14.23").test(
+            FabricLoader.getInstance()
+                .getModContainer("fabricloader")
+                .orElseThrow(IllegalStateException::new)
+                .getMetadata()
+                .getVersion()
+        );
+        final String transformClassName = isFabric01423 ? MlsTransformers.FABRIC_LOADER_IMPL : ENTRYPOINT_UTILS;
+        final Class<?> transformClass = Class.forName(transformClassName.replace('/', '.'));
         Agents.getInstrumentation().addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
                 MlsTransformers.instrumentClass(className, classfileBuffer),
             true
         );
-        Agents.getInstrumentation().retransformClasses(entrypointUtils);
+        Agents.getInstrumentation().retransformClasses(transformClass);
     }
 
     static {
         try {
             init();
         } catch (Throwable t) {
+            System.err.println("[ModLoadingScreen] Failed to initialize loading screen. Aborting!");
             throw new Error(t);
         }
     }

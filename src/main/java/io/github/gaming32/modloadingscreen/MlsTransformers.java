@@ -12,6 +12,8 @@ import java.util.ListIterator;
 import java.util.function.Consumer;
 
 public final class MlsTransformers {
+    public static final String FABRIC_LOADER_IMPL = "net/fabricmc/loader/impl/FabricLoaderImpl";
+
     public static final String FABRIC_ENTRYPOINT_UTILS = "net/fabricmc/loader/impl/entrypoint/EntrypointUtils";
     public static final String QUILT_ENTRYPOINT_UTILS = "org/quiltmc/loader/impl/entrypoint/EntrypointUtils";
     private static final String ENTRYPOINT_CONTAINER = "net/fabricmc/loader/api/entrypoint/EntrypointContainer";
@@ -31,6 +33,9 @@ public final class MlsTransformers {
 
     public static final String ACTUAL_LOADING_SCREEN = "io/github/gaming32/modloadingscreen/ActualLoadingScreen";
 
+    private static final Collection<Consumer<ClassNode>> FABRIC_LOADER_IMPL_TRANSFORMER = Collections.singleton(
+        MlsTransformers::instrumentFabricLoaderImplInvokeEntrypoints
+    );
     private static final Collection<Consumer<ClassNode>> FABRIC_ENTRYPOINT_UTILS_TRANSFORMER = Arrays.asList(
         clazz -> instrumentEntrypointUtilsInvoke(clazz, false),
         clazz -> instrumentEntrypointUtilsInvoke0(clazz, false)
@@ -53,6 +58,9 @@ public final class MlsTransformers {
         try {
             Collection<Consumer<ClassNode>> transformer = null;
             switch (name) {
+                case FABRIC_LOADER_IMPL:
+                    transformer = FABRIC_LOADER_IMPL_TRANSFORMER;
+                    break;
                 case FABRIC_ENTRYPOINT_UTILS:
                     transformer = FABRIC_ENTRYPOINT_UTILS_TRANSFORMER;
                     break;
@@ -92,6 +100,30 @@ public final class MlsTransformers {
         return null;
     }
 
+    private static void instrumentFabricLoaderImplInvokeEntrypoints(ClassNode clazz) {
+        final MethodNode method = clazz.methods.stream()
+            .filter(m -> m.name.equals("invokeEntrypoints"))
+            .findFirst()
+            .orElse(null);
+        if (method == null) {
+            System.out.println("[ModLoadingScreen] New-style FabricLoaderImpl.invokeEntrypoints not found. Assuming old Fabric.");
+            return;
+        }
+        final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
+
+        maybeCloseAfter(it, true);
+
+        while (it.hasNext()) {
+            final AbstractInsnNode insn = it.next();
+            if (!(insn instanceof InsnNode)) continue;
+            if (insn.getOpcode() == Opcodes.ACONST_NULL) break;
+        }
+        it.previous();
+        mainEntrypointHooks(it, false,  true);
+
+        maybeCloseAfter(it, true);
+    }
+
     private static void instrumentEntrypointUtilsInvoke(ClassNode clazz, boolean onQuilt) {
         final MethodNode method = clazz.methods.stream()
             .filter(m -> m.name.equals(onQuilt ? "invokeContainer" : "invoke"))
@@ -99,13 +131,20 @@ public final class MlsTransformers {
             .orElseThrow(IllegalStateException::new);
         final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
 
+        maybeCloseAfter(it, false);
+    }
+
+    /**
+     * Inserts code for calling maybeCloseAfter, and leaves {@code it} pointing to the {@code RETURN}.
+     */
+    private static void maybeCloseAfter(ListIterator<AbstractInsnNode> it, boolean instanceMethod) {
         while (it.hasNext()) {
             final AbstractInsnNode insn = it.next();
             if (!(insn instanceof InsnNode)) continue;
             if (insn.getOpcode() == Opcodes.RETURN) break;
         }
         it.previous();
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        it.add(new VarInsnNode(Opcodes.ALOAD, instanceMethod ? 1 : 0));
         it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "maybeCloseAfter",
@@ -121,22 +160,31 @@ public final class MlsTransformers {
             .orElseThrow(IllegalStateException::new);
         final ListIterator<AbstractInsnNode> it = method.instructions.iterator();
 
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        mainEntrypointHooks(it, onQuilt, false);
+    }
+
+    private static void mainEntrypointHooks(ListIterator<AbstractInsnNode> it, boolean onQuilt, boolean instanceMethod) {
+        final int varOffset = instanceMethod ? 1 : 0;
+        //noinspection PointlessArithmeticExpression
+        final int keyIndex = 0 + varOffset;
+        final int typeIndex = 1 + varOffset;
+
+        it.add(new VarInsnNode(Opcodes.ALOAD, keyIndex));
+        it.add(new VarInsnNode(Opcodes.ALOAD, typeIndex));
         it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "beforeEntrypointType",
             "(Ljava/lang/String;Ljava/lang/Class;)V"
         ));
 
-        final int container = onQuilt ? 7 : 6;
+        final int container = (onQuilt ? 7 : 6) + varOffset;
         while (it.hasNext()) {
             final AbstractInsnNode insn = it.next();
             if (!(insn instanceof VarInsnNode)) continue;
             if (insn.getOpcode() == Opcodes.ASTORE && ((VarInsnNode)insn).var == container) break;
         }
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        it.add(new VarInsnNode(Opcodes.ALOAD, 1));
+        it.add(new VarInsnNode(Opcodes.ALOAD, keyIndex));
+        it.add(new VarInsnNode(Opcodes.ALOAD, typeIndex));
         it.add(new MethodInsnNode(
             Opcodes.INVOKEVIRTUAL,
             "java/lang/Class", "getSimpleName",
@@ -190,7 +238,7 @@ public final class MlsTransformers {
         }
         it.previous();
         it.previous();
-        it.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        it.add(new VarInsnNode(Opcodes.ALOAD, keyIndex));
         it.add(new MethodInsnNode(
             Opcodes.INVOKESTATIC,
             ACTUAL_LOADING_SCREEN, "afterEntrypointType",

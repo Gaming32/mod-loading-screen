@@ -29,6 +29,8 @@ public final class LoadingScreenApi {
     private static final MethodHandle CREATE_CUSTOM_PROGRESS_BAR;
     private static final MethodHandle CUSTOM_PROGRESS_BAR_OP;
 
+    private static final MethodHandle FABRIC_0_14_23_INVOKE_ENTRYPOINTS;
+
     static {
         long features = 0;
         MethodHandle finalEntrypoints = null;
@@ -117,6 +119,19 @@ public final class LoadingScreenApi {
         IS_OPEN = isOpen;
         CREATE_CUSTOM_PROGRESS_BAR = createCustomProgressBar;
         CUSTOM_PROGRESS_BAR_OP = customProgressBarOp;
+
+        MethodHandle invokeEntrypoints = null;
+        try {
+            invokeEntrypoints = lookup.findVirtual(
+                FabricLoader.class, "invokeEntrypoints",
+                MethodType.methodType(void.class, String.class, Class.class, Consumer.class)
+            );
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            System.err.println("[ModLoadingScreen] Failed to find FabricLoader.invokeEntrypoints");
+            e.printStackTrace();
+        }
+        FABRIC_0_14_23_INVOKE_ENTRYPOINTS = invokeEntrypoints;
     }
 
     private static void loadFailed(String mlsVersionRequired, long feature, Exception e) {
@@ -172,13 +187,21 @@ public final class LoadingScreenApi {
      * Invokes an entrypoint with a clean API. If Mod Loading Screen is available, its progress will show up in the
      * loading screen. If you are developing a Quilt mod, you should use {@code EntrypointUtil} instead.
      *
-     * @throws EntrypointException If any entrypoints threw an exception
+     * @throws RuntimeException If any entrypoints threw an exception
      *
      * @apiNote This feature is <i>always</i> available, regardless of the return value of {@link #getFeatures}.
      * Calling this without Mod Loading Screen will work always, but just won't show up in the (non-existent) loading
      * screen.
      */
-    public static <T> void invokeEntrypoint(String name, Class<T> type, Consumer<? super T> invoker) throws EntrypointException {
+    public static <T> void invokeEntrypoint(String name, Class<T> type, Consumer<? super T> invoker) throws RuntimeException {
+        if (FABRIC_0_14_23_INVOKE_ENTRYPOINTS != null) {
+            try {
+                FABRIC_0_14_23_INVOKE_ENTRYPOINTS.invoke(name, type, invoker);
+            } catch (Throwable t) {
+                rethrow(t);
+            }
+            return;
+        }
         try {
             EntrypointUtils.invoke(name, type, invoker);
         } catch (RuntimeException e) {
