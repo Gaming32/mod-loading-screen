@@ -185,7 +185,7 @@ public final class LoadingScreenApi {
 
     /**
      * Invokes an entrypoint with a clean API. If Mod Loading Screen is available, its progress will show up in the
-     * loading screen. If you are developing a Quilt mod, you should use {@code EntrypointUtil} instead.
+     * loading screen.
      *
      * @throws RuntimeException If any entrypoints threw an exception
      *
