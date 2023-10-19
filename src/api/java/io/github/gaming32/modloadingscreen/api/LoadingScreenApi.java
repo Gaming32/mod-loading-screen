@@ -196,7 +196,7 @@ public final class LoadingScreenApi {
     public static <T> void invokeEntrypoint(String name, Class<T> type, Consumer<? super T> invoker) throws RuntimeException {
         if (FABRIC_0_14_23_INVOKE_ENTRYPOINTS != null) {
             try {
-                FABRIC_0_14_23_INVOKE_ENTRYPOINTS.invoke(FabricLoader.getInstance(), name, type, invoker);
+                FABRIC_0_14_23_INVOKE_ENTRYPOINTS.invokeExact(FabricLoader.getInstance(), name, type, invoker);
             } catch (Throwable t) {
                 rethrow(t);
             }
