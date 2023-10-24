@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     // implementation, not modImplementation!
-    include(implementation("maven.modrinth:mod-loading-screen:1.0.3:api"))
+    include(implementation("maven.modrinth:mod-loading-screen:1.0.4:api"))
 }
 ```
 
