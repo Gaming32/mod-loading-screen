@@ -190,7 +190,7 @@ public class ActualLoadingScreen {
     }
 
     private static void loadConfig() {
-        final Path configFile = configDir.resolve("config.properties");
+        final Path configFile = configDir.resolve("config.txt");
 
         final Properties configProperties = new Properties();
         try (InputStream is = Files.newInputStream(configFile)) {
