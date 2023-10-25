@@ -5,6 +5,9 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,6 +15,10 @@ import java.util.ListIterator;
 import java.util.function.Consumer;
 
 public final class MlsTransformers {
+    private static final boolean DUMP_TRANSFORMED_CLASSES =
+        Boolean.getBoolean("mod-loading-screen.dumpTransformedClasses");
+    private static volatile boolean notifiedClassDump;
+
     public static final String FABRIC_LOADER_IMPL = "net/fabricmc/loader/impl/FabricLoaderImpl";
 
     public static final String FABRIC_ENTRYPOINT_UTILS = "net/fabricmc/loader/impl/entrypoint/EntrypointUtils";
@@ -55,6 +62,35 @@ public final class MlsTransformers {
     );
 
     static byte[] instrumentClass(String name, byte[] bytes) {
+        if (DUMP_TRANSFORMED_CLASSES && !notifiedClassDump) {
+            synchronized (MlsTransformers.class) {
+                if (!notifiedClassDump) {
+                    notifiedClassDump = true;
+                    System.out.println("[ModLoadingScreen] Transformed class dumping is active");
+                    try {
+                        final Path dumpDir = Paths.get(".mlsDebugDump");
+                        if (Files.isDirectory(dumpDir)) {
+                            Files.walkFileTree(dumpDir, new SimpleFileVisitor<Path>() {
+                                @Override
+                                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                    Files.delete(file);
+                                    return super.visitFile(file, attrs);
+                                }
+
+                                @Override
+                                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                                    Files.delete(dir);
+                                    return super.postVisitDirectory(dir, exc);
+                                }
+                            });
+                        }
+                    } catch (Throwable t) {
+                        System.err.println("[ModLoadingScreen] [ERROR] Failed to clear debug dump dir");
+                    }
+                }
+            }
+        }
+
         try {
             Collection<Consumer<ClassNode>> transformer = null;
             switch (name) {
@@ -79,8 +115,9 @@ public final class MlsTransformers {
             }
             if (transformer != null) {
                 System.out.println("[ModLoadingScreen] Transforming " + name);
+                final ClassReader reader = new ClassReader(bytes);
                 final ClassNode clazz = new ClassNode();
-                new ClassReader(bytes).accept(clazz, 0);
+                reader.accept(clazz, 0);
                 for (final Consumer<ClassNode> part : transformer) {
                     try {
                         part.accept(clazz);
@@ -89,9 +126,20 @@ public final class MlsTransformers {
                         e.printStackTrace();
                     }
                 }
-                final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+                final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
                 clazz.accept(writer);
-                return writer.toByteArray();
+                final byte[] result = writer.toByteArray();
+                if (DUMP_TRANSFORMED_CLASSES) {
+                    try {
+                        final Path dumpedPath = Paths.get(".mlsDebugDump", name + ".class");
+                        Files.createDirectories(dumpedPath.getParent());
+                        Files.write(dumpedPath, result);
+                    } catch (Exception e) {
+                        System.err.println("[ModLoadingScreen] [ERROR] Failed to dump class " + name);
+                        e.printStackTrace();
+                    }
+                }
+                return result;
             }
         } catch (Throwable t) {
             System.err.println("[ModLoadingScreen] [ERROR] Completely failed to transform " + name);

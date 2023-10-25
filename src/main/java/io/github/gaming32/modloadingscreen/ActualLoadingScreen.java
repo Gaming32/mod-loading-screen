@@ -43,6 +43,22 @@ public class ActualLoadingScreen {
     private static boolean enableMemoryDisplay = true;
 
     public static void startLoadingScreen(boolean fabricReady) {
+        final Path gameDir = fabricReady ? FabricLoader.getInstance().getGameDir() : Paths.get(".").toAbsolutePath();
+        final Path runDir = gameDir.resolve(".cache/mod-loading-screen");
+        try {
+            Files.createDirectories(runDir);
+        } catch (IOException e) {
+            println("Failed to create runDir", e);
+        }
+
+        if (!IS_IPC_CLIENT) {
+            try {
+                logFile = new PrintStream(Files.newOutputStream(runDir.resolve(ENABLE_IPC ? "ipc-server-log.txt" : "screen-log.txt")));
+            } catch (IOException e) {
+                println("Failed to create logFile", e);
+            }
+        }
+
         if (IS_HEADLESS) {
             println("Mod Loading Screen is on a headless environment. Only some logging will be performed.");
             return;
@@ -73,12 +89,9 @@ public class ActualLoadingScreen {
         loadConfig();
 
         if (ENABLE_IPC) {
-            final Path gameDir = fabricReady ? FabricLoader.getInstance().getGameDir() : Paths.get(".").toAbsolutePath();
-            final Path runDir = gameDir.resolve(".cache/mod-loading-screen");
             final Path flatlafDestPath = runDir.resolve("flatlaf.jar");
             try {
                 if (fabricReady) {
-                    Files.createDirectories(flatlafDestPath.getParent());
                     Files.copy(
                         FabricLoader.getInstance()
                             .getModContainer("mod-loading-screen")
@@ -413,6 +426,13 @@ public class ActualLoadingScreen {
             }
             ipcOut = null;
         }
+        if (logFile != null) {
+            logFile.close();
+            if (logFile.checkError()) {
+                println("Failed to close logFile");
+            }
+            logFile = null;
+        }
     }
 
     public static boolean isOpen() {
@@ -544,6 +564,7 @@ public class ActualLoadingScreen {
         } catch (Exception e) {
             println("Error in IPC client", e);
         }
+        logFile = null;
         close();
     }
 }
