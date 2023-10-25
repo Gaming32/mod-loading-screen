@@ -45,13 +45,13 @@ public class ActualLoadingScreen {
     public static void startLoadingScreen(boolean fabricReady) {
         final Path gameDir = fabricReady ? FabricLoader.getInstance().getGameDir() : Paths.get(".").toAbsolutePath();
         final Path runDir = gameDir.resolve(".cache/mod-loading-screen");
-        try {
-            Files.createDirectories(runDir);
-        } catch (IOException e) {
-            println("Failed to create runDir", e);
-        }
 
         if (!IS_IPC_CLIENT) {
+            try {
+                Files.createDirectories(runDir);
+            } catch (IOException e) {
+                println("Failed to create runDir", e);
+            }
             try {
                 logFile = new PrintStream(Files.newOutputStream(runDir.resolve(ENABLE_IPC ? "ipc-server-log.txt" : "screen-log.txt")));
             } catch (IOException e) {
