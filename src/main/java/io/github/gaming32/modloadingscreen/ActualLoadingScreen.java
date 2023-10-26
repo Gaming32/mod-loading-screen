@@ -523,8 +523,8 @@ public class ActualLoadingScreen {
 
     // IPC client
     public static void main(String[] args) {
-        try (PrintStream logFile = new PrintStream("ipc-client-log.txt")) {
-            ActualLoadingScreen.logFile = logFile;
+        try {
+            logFile = new PrintStream("ipc-client-log.txt");
             startLoadingScreen(false);
             final DataInputStream in = new DataInputStream(System.in);
             mainLoop:
@@ -564,7 +564,6 @@ public class ActualLoadingScreen {
         } catch (Exception e) {
             println("Error in IPC client", e);
         }
-        logFile = null;
         close();
     }
 }
