@@ -563,6 +563,10 @@ public class ActualLoadingScreen {
             println("IPC client exiting cleanly");
         } catch (Exception e) {
             println("Error in IPC client", e);
+            JOptionPane.showMessageDialog(
+                dialog, "An error occurred in Mod Loading Screen's IPC client\n" + e,
+                "Mod Loading Screen IPC Client", JOptionPane.ERROR_MESSAGE
+            );
         }
         close();
     }
