@@ -16,7 +16,7 @@ public class EarlyLoadingAgent {
 
         final Path flatlafDestPath = Paths.get(".cache/mod-loading-screen/flatlaf.jar").toAbsolutePath();
         Files.createDirectories(flatlafDestPath.getParent());
-        try (InputStream is = EarlyLoadingAgent.class.getResourceAsStream("/META-INF/jars/flatlaf-3.0.jar")) {
+        try (InputStream is = EarlyLoadingAgent.class.getClassLoader().getResourceAsStream(MlsConstants.FLATLAF_PATH)) {
             if (is == null) {
                 System.err.println("[ModLoadingScreen] [ERROR] flatlaf.jar not found! Aborting.");
                 return;

@@ -97,7 +97,7 @@ public class ActualLoadingScreen {
                             .getModContainer("mod-loading-screen")
                             .orElseThrow(AssertionError::new)
                             .getRootPaths().get(0)
-                            .resolve("META-INF/jars/flatlaf-3.0.jar"),
+                            .resolve(MlsConstants.FLATLAF_PATH),
                         flatlafDestPath, StandardCopyOption.REPLACE_EXISTING
                     );
                     println("Extracted flatlaf.jar");
