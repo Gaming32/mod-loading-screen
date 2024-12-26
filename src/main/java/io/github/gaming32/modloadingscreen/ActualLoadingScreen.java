@@ -9,10 +9,31 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import java.awt.*;
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.GraphicsEnvironment;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 import static io.github.gaming32.modloadingscreen.MlsTransformers.ACTUAL_LOADING_SCREEN;
 
@@ -25,6 +46,7 @@ public class ActualLoadingScreen {
     public static final boolean IS_HEADLESS = GraphicsEnvironment.isHeadless();
     public static final boolean ENABLE_IPC =
         !IS_IPC_CLIENT && !IS_HEADLESS && !Boolean.getBoolean("mod-loading-screen.disableIpc");
+    public static final String[] SUPPORTED_BACKGROUND_FORMATS = {"gif", "jpeg", "png", "xbm"};
 
     // Unlike progressBars, this is populated on both the IPC client and IPC server, allowing it to be used from the API
     public static final Map<String, Integer> progress = new LinkedHashMap<>();
@@ -159,25 +181,16 @@ public class ActualLoadingScreen {
         dialog.setResizable(false);
 
         try {
-            final Path iconPath = configDir.resolve("icon.png");
-            dialog.setIconImage(ImageIO.read(
-                Files.exists(iconPath)
-                    ? iconPath.toUri().toURL()
-                    : ClassLoader.getSystemResource("assets/mod-loading-screen/icon.png")
-            ));
+            dialog.setIconImage(ImageIO.read(findImageUrl("icon", "icon.png", ImageIO.getReaderFileSuffixes())));
         } catch (Exception e) {
             println("Failed to load icon.png", e);
         }
 
         ImageIcon background;
         try {
-            final Path backgroundPath = configDir.resolve("background.png");
-            background = new ImageIcon(
-                Files.exists(backgroundPath)
-                    ? backgroundPath.toUri().toURL()
-                    : ClassLoader.getSystemResource("assets/mod-loading-screen/" + (runningOnQuilt ? "quilt-banner.png" : "aof4.png"))
-            );
-            background.setImage(background.getImage().getScaledInstance(960, 540, Image.SCALE_SMOOTH));
+            background = new ImageIcon(findImageUrl(
+                "background", runningOnQuilt ? "quilt-banner.png" : "aof4.png", SUPPORTED_BACKGROUND_FORMATS
+            ));
         } catch (Exception e) {
             println("Failed to load background.png", e);
             background = null;
@@ -222,12 +235,27 @@ public class ActualLoadingScreen {
 
         try (OutputStream os = Files.newOutputStream(configFile)) {
             configProperties.store(os,
-                "To use a custom background image, create a file named background.png in this folder. The recommended size is 960x540.\n" +
-                    "To use a custom icon image, create a file named icon.png in this folder. It should be square."
+                "To use a custom background image, create an image named \"background\" in this folder. The recommended size is 960x540.\n" +
+                "The supported background image formats are: " + String.join(", ", SUPPORTED_BACKGROUND_FORMATS) + "\n" +
+                "\n" +
+                "To use a custom icon image, create a file named icon.png in this folder. It should be square.\n" +
+                "The supported icon image formats are: " + String.join(", ", ImageIO.getReaderFileSuffixes()) + "\n"
             );
         } catch (Exception e) {
             println("Failed to write config", e);
         }
+    }
+
+    private static URL findImageUrl(
+        String prefix, String defaultFilename, String[] formats
+    ) throws MalformedURLException {
+        for (final String format : formats) {
+            final Path path = configDir.resolve(prefix + '.' + format);
+            if (Files.isRegularFile(path)) {
+                return path.toUri().toURL();
+            }
+        }
+        return ClassLoader.getSystemResource("assets/mod-loading-screen/" + defaultFilename);
     }
 
     private static void startMemoryThread() {
