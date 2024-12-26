@@ -1,6 +1,5 @@
 plugins {
-    id("fabric-loom") version "1.3.+"
-    id("io.github.juuxel.loom-quiltflower") version "1.8.0"
+    id("fabric-loom") version "1.9.+"
     `maven-publish`
 }
 
@@ -14,18 +13,14 @@ val api by sourceSets.registering {
     compileClasspath += sourceSets.main.get().compileClasspath
 }
 
-repositories {
-    maven("https://maven.lenni0451.net/releases")
-}
-
 dependencies {
     // To change the versions see the gradle.properties file
     minecraft("com.mojang:minecraft:${project.extra["minecraft_version"]}")
     mappings("net.fabricmc:yarn:${project.extra["yarn_mappings"]}:v2")
     modImplementation("net.fabricmc:fabric-loader:${project.extra["loader_version"]}")
 
-    include(implementation("net.lenni0451:Reflect:1.0.2")!!)
-    include(implementation("com.formdev:flatlaf:3.0")!!)
+    include(implementation("net.lenni0451:Reflect:1.4.0")!!)
+    include(implementation("com.formdev:flatlaf:3.5.4")!!)
 }
 
 tasks.jar {
