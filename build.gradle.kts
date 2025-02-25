@@ -1,3 +1,5 @@
+import net.fabricmc.loom.task.prod.ClientProductionRunTask
+
 plugins {
     id("fabric-loom") version "1.10.+"
     `maven-publish`
@@ -75,6 +77,12 @@ tasks.jar {
     from("LICENSE") {
         rename { "${it}_${base.archivesName.get()}" }
     }
+}
+
+@Suppress("UnstableApiUsage")
+val prodClient by tasks.registering(ClientProductionRunTask::class) {
+    jvmArgs.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
+    outputs.upToDateWhen { false }
 }
 
 // configure the maven publication
