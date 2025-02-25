@@ -4,7 +4,7 @@ An advanced loading screen with the loading progress of mods. It works on all Mi
 
 ## Agent
 
-Mod Loading Screen provides a Java agent, which allows opening the loading screen before even the mod loader itself loads. This feature is primarily targeted at modpack developers who want to make a seamless loading experience. The agent can be used by passing `-javaagent:mod-loading-screen-1.0.4.jar` as a JVM argument. If the agent is used, the loading screen should *not* be installed as a mod.
+Mod Loading Screen provides a Java agent, which allows opening the loading screen before even the mod loader itself loads. This feature is primarily targeted at modpack developers who want to make a seamless loading experience. The agent can be used by passing `-javaagent:mod-loading-screen-1.0.5.jar` as a JVM argument. If the agent is used, the loading screen should *not* be installed as a mod.
 
 ## API
 
@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
     // implementation, not modImplementation!
-    include(implementation("maven.modrinth:mod-loading-screen:1.0.4:api"))
+    include(implementation("maven.modrinth:mod-loading-screen:1.0.5:api"))
 }
 ```
 
