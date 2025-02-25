@@ -11,7 +11,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public final class MlsTransformers {
@@ -40,26 +42,32 @@ public final class MlsTransformers {
 
     public static final String ACTUAL_LOADING_SCREEN = "io/github/gaming32/modloadingscreen/ActualLoadingScreen";
 
-    private static final Collection<Consumer<ClassNode>> FABRIC_LOADER_IMPL_TRANSFORMER = Collections.singleton(
-        MlsTransformers::instrumentFabricLoaderImplInvokeEntrypoints
-    );
-    private static final Collection<Consumer<ClassNode>> FABRIC_ENTRYPOINT_UTILS_TRANSFORMER = Arrays.asList(
-        clazz -> instrumentEntrypointUtilsInvoke(clazz, false),
-        clazz -> instrumentEntrypointUtilsInvoke0(clazz, false)
-    );
-    private static final Collection<Consumer<ClassNode>> QUILT_ENTRYPOINT_UTILS_TRANSFORMER = Arrays.asList(
-        clazz -> instrumentEntrypointUtilsInvoke(clazz, true),
-        clazz -> instrumentEntrypointUtilsInvoke0(clazz, true)
-    );
-    private static final Collection<Consumer<ClassNode>> FABRIC_MOD_DISCOVERER_TRANSFORMER = Collections.singleton(
-        clazz -> instrumentModDiscovererDiscoverMods(clazz, false)
-    );
-    private static final Collection<Consumer<ClassNode>> QUILT_MOD_RESOLVER_TRANSFORMER = Collections.singleton(
-        clazz -> instrumentModDiscovererDiscoverMods(clazz, true)
-    );
-    private static final Collection<Consumer<ClassNode>> STANDARD_QUILT_PLUGIN_ADD_BUILTIN_MODS_TRANSFORMER = Collections.singleton(
-        MlsTransformers::instrumentStandardQuiltPluginAddBuiltinMods
-    );
+    public static final Map<String, Collection<Consumer<ClassNode>>> TRANSFORMERS;
+
+    static {
+        final Map<String, Collection<Consumer<ClassNode>>> transformers = new HashMap<>(8);
+        transformers.put(FABRIC_LOADER_IMPL, Collections.singleton(
+            MlsTransformers::instrumentFabricLoaderImplInvokeEntrypoints
+        ));
+        transformers.put(FABRIC_ENTRYPOINT_UTILS, Arrays.asList(
+            clazz -> instrumentEntrypointUtilsInvoke(clazz, false),
+            clazz -> instrumentEntrypointUtilsInvoke0(clazz, false)
+        ));
+        transformers.put(QUILT_ENTRYPOINT_UTILS, Arrays.asList(
+            clazz -> instrumentEntrypointUtilsInvoke(clazz, true),
+            clazz -> instrumentEntrypointUtilsInvoke0(clazz, true)
+        ));
+        transformers.put(MOD_DISCOVERER, Collections.singleton(
+            clazz -> instrumentModDiscovererDiscoverMods(clazz, false)
+        ));
+        transformers.put(MOD_RESOLVER, Collections.singleton(
+            clazz -> instrumentModDiscovererDiscoverMods(clazz, true)
+        ));
+        transformers.put(STANDARD_QUILT_PLUGIN, Collections.singleton(
+            MlsTransformers::instrumentStandardQuiltPluginAddBuiltinMods
+        ));
+        TRANSFORMERS = Collections.unmodifiableMap(transformers);
+    }
 
     static byte[] instrumentClass(String name, byte[] bytes) {
         if (DUMP_TRANSFORMED_CLASSES && !notifiedClassDump) {
@@ -92,27 +100,7 @@ public final class MlsTransformers {
         }
 
         try {
-            Collection<Consumer<ClassNode>> transformer = null;
-            switch (name) {
-                case FABRIC_LOADER_IMPL:
-                    transformer = FABRIC_LOADER_IMPL_TRANSFORMER;
-                    break;
-                case FABRIC_ENTRYPOINT_UTILS:
-                    transformer = FABRIC_ENTRYPOINT_UTILS_TRANSFORMER;
-                    break;
-                case QUILT_ENTRYPOINT_UTILS:
-                    transformer = QUILT_ENTRYPOINT_UTILS_TRANSFORMER;
-                    break;
-                case MOD_DISCOVERER:
-                    transformer = FABRIC_MOD_DISCOVERER_TRANSFORMER;
-                    break;
-                case MOD_RESOLVER:
-                    transformer = QUILT_MOD_RESOLVER_TRANSFORMER;
-                    break;
-                case STANDARD_QUILT_PLUGIN:
-                    transformer = STANDARD_QUILT_PLUGIN_ADD_BUILTIN_MODS_TRANSFORMER;
-                    break;
-            }
+            final Collection<Consumer<ClassNode>> transformer = TRANSFORMERS.get(name);
             if (transformer != null) {
                 System.out.println("[ModLoadingScreen] Transforming " + name);
                 final ClassReader reader = new ClassReader(bytes);

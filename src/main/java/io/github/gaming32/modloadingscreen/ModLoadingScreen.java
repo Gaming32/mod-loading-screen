@@ -10,7 +10,10 @@ import net.lenni0451.reflect.Agents;
 import net.lenni0451.reflect.ClassLoaders;
 import net.lenni0451.reflect.Methods;
 
+import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.github.gaming32.modloadingscreen.MlsTransformers.ACTUAL_LOADING_SCREEN;
 
@@ -65,21 +68,19 @@ public class ModLoadingScreen implements LanguageAdapter {
             "startLoadingScreen", boolean.class
         ), true);
 
-        final boolean isFabric01423 = VersionPredicate.parse(">=0.14.23").test(
-            FabricLoader.getInstance()
-                .getModContainer("fabricloader")
-                .orElseThrow(IllegalStateException::new)
-                .getMetadata()
-                .getVersion()
-        );
-        final String transformClassName = isFabric01423 ? MlsTransformers.FABRIC_LOADER_IMPL : ENTRYPOINT_UTILS;
-        final Class<?> transformClass = Class.forName(transformClassName.replace('/', '.'));
-        Agents.getInstrumentation().addTransformer(
+        final Instrumentation instrumentation = Agents.getInstrumentation();
+        instrumentation.addTransformer(
             (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) ->
                 MlsTransformers.instrumentClass(className, classfileBuffer),
             true
         );
-        Agents.getInstrumentation().retransformClasses(transformClass);
+        final List<Class<?>> toRetransform = new ArrayList<>(1);
+        for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
+            if (MlsTransformers.TRANSFORMERS.containsKey(loaded.getName().replace('.', '/'))) {
+                toRetransform.add(loaded);
+            }
+        }
+        instrumentation.retransformClasses(toRetransform.toArray(new Class<?>[0]));
     }
 
     static {
